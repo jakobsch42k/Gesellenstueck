@@ -17,7 +17,7 @@
 
     // Automatische Aktualisierung vorbereiten
     setInterval(() => {
-      fetch('/data')
+      fetch('/data.json')
         .then(r => r.json())
         .then(data => {
           document.getElementById('light').innerText = data.light + ' lx';

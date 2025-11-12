@@ -5,6 +5,7 @@
 #include <WiFi.h>
 #include <WebServer.h>
 #include <LittleFS.h>
+#include <ArduinoJson.h>
 
 // WLAN-Zugangsdaten
 const char* ssid = "Esp-32-Webserver";
@@ -12,6 +13,11 @@ const char* password = "12345678";
 
 // Webserver auf Port 80
 WebServer server(80);
+
+// Tempdata
+float temperature = 0.0;
+float humidity = 0.0;
+float light = 0.0;
 
 // Hilfsfunktion zur automatischen MIME-Typ-Erkennung
 String getContentType(const String& filename) {
@@ -50,17 +56,31 @@ void handleNotFound() {
   }
 }
 
+void handleData() {
+  DynamicJsonDocument doc(256);
+  doc["light"] = round(light *100)/100;
+  doc["temperature"] = round(temperature *100)/100;
+  doc["humidity"] = round(humidity *100)/100;
+  String json;
+  serializeJson(doc, json);
+  server.send(200, "application/json", json);
+}
+
 void setup() {
   Serial.begin(115200);
   delay(500);
 
   // WLAN verbinden
-  WiFi.begin(ssid, password);
-  Serial.println("Verbindet mit WLAN...");
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
+  WiFi.mode(WIFI_AP);
+  WiFi.softAP(ssid, password, 6);  // Kanal 6 für iPhone-Kompatibilität
+
+  IPAddress IP = WiFi.softAPIP();
+  Serial.print("AP gestartet! SSID: ");
+  Serial.println(ssid);
+  Serial.print("IP-Adresse: ");
+  Serial.println(IP);
+
+
   Serial.println();
   Serial.print("Verbunden! IP-Adresse: ");
   Serial.println(WiFi.localIP());
@@ -72,8 +92,10 @@ void setup() {
   }
 
   //Standardrouten
+  server.on("/data.json", handleData);
   server.onNotFound(handleNotFound);
   server.begin();
+  
 
   Serial.println("HTTP-Server gestartet");
 }
