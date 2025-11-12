@@ -4,89 +4,80 @@
 
 #include <WiFi.h>
 #include <WebServer.h>
-#include <Wire.h>
-#include <ArduinoJson.h>
+#include <LittleFS.h>
 
+// WLAN-Zugangsdaten
+const char* ssid = "Esp-32-Webserver";
+const char* password = "12345678";
 
-// --- HTML-Seite ---
-
-#include "./html.cpp"
-
-// --- Sensor Objekte ---
-BH1750 lightSensor; // I2C
-Adafruit_BME280 bme; // I2C
-
-// --- WLAN-Access-Point ---
-const char* ssid = "ESP32_WebServer";   // Name des WLANs
-const char* password = "12345678";      // Passwort (min. 8 Zeichen)
-
-// --- Webserver auf Port 80 ---
+// Webserver auf Port 80
 WebServer server(80);
 
-
-// --- Sensor Variablen ---
-float light;
-float temperature;
-float humidity;
-
-// --- Handler für die Root-Seite ---
-void handleRoot() {
-  server.send(200, "text/html", htmlPage);
+// Hilfsfunktion zur automatischen MIME-Typ-Erkennung
+String getContentType(const String& filename) {
+  if (filename.endsWith(".htm") || filename.endsWith(".html")) return "text/html";
+  else if (filename.endsWith(".css")) return "text/css";
+  else if (filename.endsWith(".js")) return "application/javascript";
+  else if (filename.endsWith(".png")) return "image/png";
+  else if (filename.endsWith(".gif")) return "image/gif";
+  else if (filename.endsWith(".jpg") || filename.endsWith(".jpeg")) return "image/jpeg";
+  else if (filename.endsWith(".ico")) return "image/x-icon";
+  else if (filename.endsWith(".svg")) return "image/svg+xml";
+  else if (filename.endsWith(".json")) return "application/json";
+  else if (filename.endsWith(".txt")) return "text/plain";
+  return "application/octet-stream";
 }
 
-// --- Handler für Sensordaten im JSON-Format ---
-void handleData() {
-  DynamicJsonDocument doc(256);
-  doc["light"] = round(light *100)/100;
-  doc["temperature"] = round(temperature *100)/100;
-  doc["humidity"] = round(humidity *100)/100;
-  String json;
-  serializeJson(doc, json);
-  server.send(200, "application/json", json);
+// Funktion zum Senden einer Datei aus LittleFS
+bool handleFileRead(String path) {
+  if (path.endsWith("/")) path += "index.html"; // Default-Seite
+  if (!LittleFS.exists(path)) {
+    Serial.println("Datei nicht gefunden: " + path);
+    return false;
+  }
+
+  File file = LittleFS.open(path, "r");
+  String contentType = getContentType(path);
+  server.streamFile(file, contentType);
+  file.close();
+  return true;
+}
+
+//Standard-Handler für alle eingehenden Anfragen
+void handleNotFound() {
+  if (!handleFileRead(server.uri())) {
+    server.send(404, "text/plain", "404: Datei nicht gefunden");
+  }
 }
 
 void setup() {
   Serial.begin(115200);
-  delay(1000);
-  Serial.println("Starte ESP32 Access Point...");
+  delay(500);
 
-  // Access Point starten
-  WiFi.mode(WIFI_AP);
-  WiFi.softAP(ssid, password, 6);  // Kanal 6 für iPhone-Kompatibilität
+  // WLAN verbinden
+  WiFi.begin(ssid, password);
+  Serial.println("Verbindet mit WLAN...");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println();
+  Serial.print("Verbunden! IP-Adresse: ");
+  Serial.println(WiFi.localIP());
 
-  IPAddress IP = WiFi.softAPIP();
-  Serial.print("AP gestartet! SSID: ");
-  Serial.println(ssid);
-  Serial.print("IP-Adresse: ");
-  Serial.println(IP);
+  //LittleFS starten
+  if (!LittleFS.begin(true)) {
+    Serial.println("Fehler beim Mounten von LittleFS!");
+    return;
+  }
 
-  // Webserver starten
-  server.on("/", handleRoot);
-  server.on("/data", handleData);
+  //Standardrouten
+  server.onNotFound(handleNotFound);
   server.begin();
-  Serial.println("Webserver gestartet!");
 
-  Wire.begin(8, 9);
-
-
-  // BH1750 initialisieren
-  if(!lightSensor.begin()) {
-    Serial.println("BH1750 nicht gefunden!");
-  } else {
-    Serial.println("BH1750 erfolgreich gestartet");
-  }
-
-  if(!bme.begin(0x76)) {  
-    Serial.println("BME280 nicht gefunden!");
-  } else {
-    Serial.println("BME280 erfolgreich gestartet");
-  }
+  Serial.println("HTTP-Server gestartet");
 }
 
 void loop() {
-  server.handleClient(); // Anfragen verarbeiten
-  light = lightSensor.readLightLevel();
-  temperature = bme.readTemperature();
-  humidity = bme.readHumidity();
-
+  server.handleClient();
 }
