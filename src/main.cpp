@@ -14,6 +14,12 @@ const char* password = "12345678";
 // Webserver auf Port 80
 WebServer server(80);
 
+// Konfigurationsstruktur
+struct Config {
+  int moisture[5];
+  int lux;
+} config;
+
 // Tempdata
 float temperature = 0.0;
 float humidity = 0.0;
@@ -66,6 +72,76 @@ void handleData() {
   server.send(200, "application/json", json);
 }
 
+// Konfiguration laden
+void loadConfig() {
+  if (!LittleFS.exists("/config.json")) {
+    Serial.println("Keine config.json gefunden, Standardwerte");
+    for (int i = 0; i < 5; i++) config.moisture[i] = 40 + i*10;
+    config.lux = 150;  
+    return;
+  }
+
+  File file = LittleFS.open("/config.json", "r");
+  StaticJsonDocument<256> doc;
+  DeserializationError err = deserializeJson(doc, file);
+  file.close();
+  if (err) {
+    Serial.println("Fehler beim Laden von config.json");
+    return;
+  }
+
+  for (int i = 0; i < 5; i++) config.moisture[i] = doc["moisture" + String(i+1)];
+  config.lux = doc["lux"];
+  Serial.println("Config geladen");
+}
+
+// Konfiguration speichern
+void saveConfig() {
+  StaticJsonDocument<256> doc;
+  for (int i = 0; i < 5; i++) doc["moisture" + String(i+1)] = config.moisture[i];
+  doc["lux"] = config.lux;
+
+  File file = LittleFS.open("/config.json", "w");
+  if (!file) {
+    Serial.println("Konnte config.json nicht öffnen");
+    return;
+  }
+  serializeJsonPretty(doc, file);
+  file.close();
+  Serial.println("Config gespeichert");
+}
+
+// Handler für Konfigurations-API
+void handleGetConfig() {
+  StaticJsonDocument<256> doc;
+  for (int i = 0; i < 5; i++) doc["moisture" + String(i+1)] = config.moisture[i];
+  doc["lux"] = config.lux;
+
+  String json;
+  serializeJson(doc, json);
+  server.send(200, "application/json", json);
+}
+
+// Handler zum Setzen der Konfiguration
+void handleSetConfig() {
+  if (server.hasArg("plain") == false) {
+    server.send(400, "text/plain", "Kein Body empfangen");
+    return;
+  }
+
+  StaticJsonDocument<256> doc;
+  DeserializationError error = deserializeJson(doc, server.arg("plain"));
+  if (error) {
+    server.send(400, "text/plain", "JSON Fehler");
+    return;
+  }
+
+  for (int i = 0; i < 5; i++) config.moisture[i] = doc["moisture" + String(i+1)];
+  config.lux = doc["lux"];
+  saveConfig();
+  server.send(200, "text/plain", "OK");
+}
+
 void setup() {
   Serial.begin(115200);
   delay(500);
@@ -93,11 +169,16 @@ void setup() {
 
   //Standardrouten
   server.on("/data.json", handleData);
+  server.on("/loadConfig", handleGetConfig);
+  server.on("/saveConfig", HTTP_POST, handleSetConfig);
   server.onNotFound(handleNotFound);
-  server.begin();
-  
 
   Serial.println("HTTP-Server gestartet");
+
+  server.begin();
+
+  //Konfiguration laden
+  loadConfig();
 }
 
 void loop() {

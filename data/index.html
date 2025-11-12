@@ -1,13 +1,13 @@
-  <!DOCTYPE html>
-  <html lang="de">
-  <head>
+<!DOCTYPE html>
+<html lang="de">
+<head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="style.css">
-    <script src="script.js" defer></script>
-  <title>Hochbeet Steuerung – ESP32</title>
-  </head>
-  <body>
+  <title>Hochbeet Steuerung - ESP32</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="script.js" defer></script>
+</head>
+<body>
   <header>
     <h1>🌱 Hochbeet-Steuerung ESP32</h1>
   </header>
@@ -22,70 +22,10 @@
   <section id="dashboard" class="active">
     <h2>Live-Daten</h2>
     <div class="sensor-grid">
-      <div class="card">
-        <h3>Temperatur</h3>
-        <p><strong id="temp">{{temp}} °C</strong></p>
-      </div>
-      <div class="card">
-        <h3>Luftfeuchtigkeit</h3>
-        <p><strong id="humidity">{{humidity}} %</strong></p>
-      </div>
-      <div class="card">
-        <h3>Helligkeit (BH1750)</h3>
-        <p><strong id="light">{{light}} lx</strong></p>
-      </div>
-      <div class="card">
-        <h3>Pumpenstatus</h3>
-        <p><strong id="pumpStatus">{{pumpStatus}}</strong></p>
-      </div>
-    </div>
-    <h3 style="margin-top:30px;">Bodenfeuchte der Beete</h3>
-    <div class="sensor-grid">
-      <div class="card">
-        <h3>Beet 1</h3>
-        <div class="bar-container"><div id="beet1Bar" class="bar" style="width: {{beet1}}%;"></div></div>
-        <p id="beet1Val">{{beet1}} %</p>
-      </div>
-      <div class="card">
-        <h3>Beet 2</h3>
-        <div class="bar-container"><div id="beet2Bar" class="bar" style="width: {{beet2}}%;"></div></div>
-        <p id="beet2Val">{{beet2}} %</p>
-      </div>
-      <div class="card">
-        <h3>Beet 3</h3>
-        <div class="bar-container"><div id="beet3Bar" class="bar" style="width: {beet3}}%"></div></div>
-        <p id="beet3Val">{{beet3}} %</p>
-      </div>
-      <div class="card">
-        <h3>Beet 4</h3>
-        <div class="bar-container"><div id="beet4Bar" class="bar" style="width: {{beet4}}%;"></div></div>
-        <p id="beet4Val">{{beet4}} %</p>
-      </div>
-      <div class="card">
-        <h3>Beet 5</h3>
-        <div class="bar-container"><div id="beet5Bar" class="bar" style="width: {{beet5}}%;"></div></div>
-        <p id="beet5Val">{{beet5}} %</p>
-      </div>
-    </div>
-
-    <h3 style="margin-top:30px;">Wassertank</h3>
-    <div class="sensor-grid">
-      <div class="card">
-        <h3>Oberer Schwimmschalter</h3>
-        <p><strong id="floatHigh">{{floatHigh}}</strong></p>
-      </div>
-      <div class="card">
-        <h3>Unterer Schwimmschalter</h3>
-        <p><strong id="floatLow">{{floatLow}}</strong></p>
-      </div>
-    </div>
-
-    <h3 style="margin-top:30px;">Dachstatus</h3>
-    <div class="sensor-grid">
-      <div class="card">
-        <h3>Dach</h3>
-        <p><strong id="roofStatus">{{roofStatus}}</strong></p>
-      </div>
+      <div class="card"><h3>Temperatur</h3><p><strong id="temp">-- °C</strong></p></div>
+      <div class="card"><h3>Luftfeuchtigkeit</h3><p><strong id="humidity">-- %</strong></p></div>
+      <div class="card"><h3>Helligkeit</h3><p><strong id="light">-- lx</strong></p></div>
+      <div class="card"><h3>Pumpe</h3><p><strong id="pumpStatus">--</strong></p></div>
     </div>
   </section>
 
@@ -95,61 +35,50 @@
     <div class="sensor-grid">
       <div class="card">
         <h3>Beet 1 Ziel-Feuchte</h3>
-        <input type="range" min="0" max="100" value="{{beet1Target}}" class="slider" id="beet1Target">
-        <p><span id="beet1TargetVal">{{beet1Target}}</span> %</p>
+        <input type="range" min="0" max="100" class="slider" id="beet1Target">
+        <p><span id="beet1TargetVal">--</span> %</p>
       </div>
       <div class="card">
         <h3>Beet 2 Ziel-Feuchte</h3>
-        <input type="range" min="0" max="100" value="{{beet2Target}}" class="slider" id="beet2Target">
-        <p><span id="beet2TargetVal">{{beet2Target}}</span> %</p>
+        <input type="range" min="0" max="100" class="slider" id="beet2Target">
+        <p><span id="beet2TargetVal">--</span> %</p>
       </div>
       <div class="card">
         <h3>Beet 3 Ziel-Feuchte</h3>
-        <input type="range" min="0" max="100" value="{{beet3Target}}" class="slider" id="beet3Target">
-        <p><span id="beet3TargetVal">{{beet3Target}}</span> %</p>
+        <input type="range" min="0" max="100" class="slider" id="beet3Target">
+        <p><span id="beet3TargetVal">--</span> %</p>
       </div>
       <div class="card">
         <h3>Beet 4 Ziel-Feuchte</h3>
-        <input type="range" min="0" max="100" value="{{beet4Target}}" class="slider" id="beet4Target">
-        <p><span id="beet4TargetVal">{{beet4Target}}</span> %</p>
+        <input type="range" min="0" max="100" class="slider" id="beet4Target">
+        <p><span id="beet4TargetVal">--</span> %</p>
       </div>
       <div class="card">
         <h3>Beet 5 Ziel-Feuchte</h3>
-        <input type="range" min="0" max="100" value="{{beet5Target}}" class="slider" id="beet5Target">
-        <p><span id="beet5TargetVal">{{beet5Target}}</span> %</p>
+        <input type="range" min="0" max="100" class="slider" id="beet5Target">
+        <p><span id="beet5TargetVal">--</span> %</p>
       </div>
     </div>
 
-    <h3 style="margin-top:30px;">Lichtsteuerung</h3>
     <div class="card">
+      <h3>Lichtsteuerung</h3>
       <label>Benötigte Helligkeit (Lux):</label>
-      <input type="number" id="lightTarget" value="{{lightTarget}}" min="0" max="10000">
+      <input type="number" id="lightTarget" min="0" max="10000">
     </div>
+
+    <button onclick="saveConfig()">💾 Speichern</button>
+    <button onclick="loadConfig()">🔄 Neu laden</button>
   </section>
 
   <!-- SYSTEMSTATUS -->
   <section id="system">
     <h2>Systemstatus</h2>
     <div class="sensor-grid">
-      <div class="card">
-        <h3>Verbindungsstatus</h3>
-        <p id="wifiStatus">{{wifiStatus}}</p>
-      </div>
-      <div class="card">
-        <h3>Letzte Aktualisierung</h3>
-        <p id="lastUpdate">{{lastUpdate}}</p>
-      </div>
-      <div class="card">
-        <h3>ESP Uptime</h3>
-        <p id="uptime">{{uptime}}</p>
-      </div>
+      <div class="card"><h3>Verbindungsstatus</h3><p id="wifiStatus">--</p></div>
+      <div class="card"><h3>Uptime</h3><p id="uptime">--</p></div>
     </div>
   </section>
 
-  <footer>
-    © 2025 Hochbeet Steuerung – ESP32 | WebUI Version 1.0
-  </footer>
-
-
-  </body>
-  </html>
+  <footer>© 2025 Hochbeet Steuerung - ESP32</footer>
+</body>
+</html>
