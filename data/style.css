@@ -71,3 +71,16 @@
       padding: 10px;
       color: #777;
     }
+    .button {
+      display: block;
+      width: fit-content;
+      background-color: #1abc9c;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      margin: 5px auto;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+      text-align: center;
+    }
