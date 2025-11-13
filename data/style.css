@@ -1,86 +1,440 @@
- body {  
-      font-family: "Segoe UI", Arial, sans-serif;
-      background-color: #f3f6fa;
-      margin: 0;
-      color: #333;
-    }
-    header {
-      background-color: #1abc9c;
-      color: white;
-      padding: 15px;
-      text-align: center;
-    }
-    nav {
-      display: flex;
-      justify-content: center;
-      background: #1abc9c;
-    }
-    nav button {
-      background: none;
-      border: none;
-      color: white;
-      padding: 14px 20px;
-      cursor: pointer;
-      font-size: 16px;
-    }
-    nav button:hover, nav button.active {
-      background-color: #23690062;
-    }
-    section {
-      display: none;
-      padding: 20px;
-    }
-    section.active {
-      display: block;
-    }
-    .sensor-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 20px;
-    }
-    .card {
-      background: white;
-      border-radius: 12px;
-      box-shadow: 0 3px 6px rgba(0,0,0,0.1);
-      padding: 15px;
-      text-align: center;
-    }
-    .card h3 {
-      margin-top: 0;
-      color: #1abc9c;
-    }
-    .bar-container {
-      width: 100%;
-      background: #e0e0e0;
-      border-radius: 10px;
-      overflow: hidden;
-      height: 16px;
-    }
-    .bar {
-      height: 100%;
-      background-color: #1abc9c;
-      width: 0%;
-      transition: width 0.5s ease-in-out;
-    }
-    .slider {
-      width: 100%;
-    }
-    footer {
-      text-align: center;
-      font-size: 13px;
-      padding: 10px;
-      color: #777;
-    }
-    .button {
-      display: block;
-      width: fit-content;
-      background-color: #1abc9c;
-      color: white;
-      border: none;
-      padding: 10px 20px;
-      margin: 5px auto;
-      border-radius: 5px;
-      cursor: pointer;
-      font-size: 16px;
-      text-align: center;
-    }
+/* Clean, Futuristic & Ecological Design for ESP32 Plant Control */
+
+:root {
+  --primary-green: #00d4aa;
+  --secondary-green: #06ffa5;
+  --dark-bg: #0a0f0d;
+  --card-bg: rgba(255, 255, 255, 0.05);
+  --text-primary: #e8f5f0;
+  --text-secondary: #a8d5c4;
+  --accent-blue: #00bcd4;
+  --earth-brown: #8d6e63;
+  --success: #4caf50;
+  --warning: #ff9800;
+  --error: #f44336;
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  --glow: 0 0 20px rgba(0, 212, 170, 0.3);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: linear-gradient(135deg, var(--dark-bg) 0%, #1a1a1a 100%);
+  margin: 0;
+  color: var(--text-primary);
+  line-height: 1.6;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background:
+    radial-gradient(circle at 20% 80%, rgba(0, 212, 170, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(0, 188, 212, 0.1) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+header {
+  background: linear-gradient(135deg, var(--primary-green), var(--secondary-green));
+  color: var(--dark-bg);
+  padding: 2rem 1rem;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+header::before {
+  content: '🌱';
+  position: absolute;
+  top: -10px;
+  right: 10%;
+  font-size: 3rem;
+  opacity: 0.3;
+  animation: float 6s ease-in-out infinite;
+}
+
+header::after {
+  content: '⚡';
+  position: absolute;
+  bottom: -10px;
+  left: 10%;
+  font-size: 2rem;
+  opacity: 0.3;
+  animation: float 8s ease-in-out infinite reverse;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+header h1 {
+  margin: 0;
+  font-size: 2.5rem;
+  font-weight: 700;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+header p {
+  margin: 0.5rem 0 0 0;
+  opacity: 0.9;
+  font-weight: 300;
+}
+
+nav {
+  display: flex;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--glass-border);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+nav button {
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  padding: 1rem 2rem;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+nav button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+nav button:hover::before,
+nav button.active::before {
+  left: 100%;
+}
+
+nav button:hover,
+nav button.active {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--secondary-green);
+  transform: translateY(-2px);
+}
+
+section {
+  display: none;
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  animation: fadeIn 0.5s ease-out;
+}
+
+section.active {
+  display: block;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+section h2 {
+  color: var(--primary-green);
+  font-size: 2rem;
+  margin-bottom: 2rem;
+  text-align: center;
+  position: relative;
+}
+
+section h2::after {
+  content: '';
+  position: absolute;
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 3px;
+  background: linear-gradient(90deg, var(--primary-green), var(--secondary-green));
+  border-radius: 2px;
+}
+
+section h3 {
+  color: var(--accent-blue);
+  font-size: 1.5rem;
+  margin: 2rem 0 1rem 0;
+}
+
+.sensor-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 2rem;
+  margin: 2rem 0;
+}
+
+.card {
+  background: var(--card-bg);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
+  padding: 2rem;
+  text-align: center;
+  box-shadow: var(--shadow);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--primary-green), var(--secondary-green));
+  border-radius: 20px 20px 0 0;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.4);
+  border-color: rgba(0, 212, 170, 0.3);
+}
+
+.card h3 {
+  margin: 0 0 1rem 0;
+  color: var(--primary-green);
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+.card h4 {
+  margin: 0 0 1rem 0;
+  color: var(--accent-blue);
+  font-size: 1.1rem;
+  font-weight: 500;
+}
+
+.card p {
+  margin: 0.5rem 0;
+  font-size: 1.1rem;
+}
+
+.card strong {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--secondary-green);
+}
+
+.bar-container {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  overflow: hidden;
+  height: 20px;
+  margin: 1rem 0;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary-green), var(--secondary-green));
+  width: 0%;
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 12px;
+  position: relative;
+}
+
+.bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.slider {
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary-green), var(--secondary-green));
+  cursor: pointer;
+  box-shadow: var(--glow);
+  transition: all 0.3s ease;
+}
+
+.slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 0 30px rgba(0, 212, 170, 0.5);
+}
+
+.slider::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary-green), var(--secondary-green));
+  cursor: pointer;
+  border: none;
+  box-shadow: var(--glow);
+}
+
+input[type="number"], select {
+  width: 100%;
+  padding: 0.8rem;
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  color: var(--text-primary);
+  font-size: 1rem;
+  margin: 0.5rem 0;
+  transition: all 0.3s ease;
+}
+
+input[type="number"]:focus, select:focus {
+  outline: none;
+  border-color: var(--primary-green);
+  box-shadow: var(--glow);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.button {
+  display: block;
+  width: max-content;
+  background: linear-gradient(135deg, var(--primary-green), var(--secondary-green));
+  color: var(--dark-bg);
+  border: none;
+  padding: 1rem 2rem;
+  margin: 0.5rem auto;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 600;
+  text-align: center;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 212, 170, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+.button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.button:hover::before {
+  left: 100%;
+}
+
+.button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 212, 170, 0.4);
+}
+
+.button:active {
+  transform: translateY(0);
+}
+
+footer {
+  text-align: center;
+  font-size: 0.9rem;
+  padding: 2rem;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.02);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid var(--glass-border);
+  margin-top: 4rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  header h1 {
+    font-size: 2rem;
+  }
+
+  nav {
+    flex-wrap: wrap;
+  }
+
+  nav button {
+    padding: 0.8rem 1.5rem;
+    font-size: 0.9rem;
+  }
+
+  section {
+    padding: 1rem;
+  }
+
+  .sensor-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .card {
+    padding: 1.5rem;
+  }
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  :root {
+    --card-bg: rgba(255, 255, 255, 0.1);
+    --glass-border: rgba(255, 255, 255, 0.3);
+  }
+}
