@@ -19,14 +19,14 @@ Features:
 - Mobile-responsive design
 -->
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
   <!-- Document character encoding and viewport settings -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <!-- Page title displayed in browser tab -->
-  <title>Hochbeet Steuerung - ESP32</title>
+  <title>ESP32 Raised Bed Control</title>
 
   <!-- External stylesheet for page styling -->
   <link rel="stylesheet" href="style.css">
@@ -37,136 +37,136 @@ Features:
 <body>
   <!-- Main page header with title and description -->
   <header>
-    <h1>🌱 Hochbeet-Steuerung ESP32</h1>
-    <p>Web-Interface für die automatisierte Steuerung von Hochbeeten</p>
+    <h1>🌱 ESP32 Raised Bed Control</h1>
+    <p>Web Interface for Automated Raised Bed Control</p>
   </header>
 
   <!-- Navigation tabs for switching between different sections of the interface -->
   <nav>
     <button class="active" onclick="showSection('dashboard')">Dashboard</button>
-    <button onclick="showSection('beete')">Beeteinstellungen</button>
-    <button onclick="showSection('system')">Systemstatus</button>
+    <button onclick="showSection('beete')">Bed Settings</button>
+    <button onclick="showSection('system')">System Status</button>
   </nav>
 
   <!-- DASHBOARD SECTION - Displays real-time sensor data -->
   <section id="dashboard" class="active">
-    <h2>Live-Daten</h2>
+    <h2>Live Data</h2>
     <!-- Grid layout for sensor data cards -->
     <div class="sensor-grid">
       <!-- Temperature sensor display card -->
-      <div class="card"><h3>Temperatur</h3><p><strong id="temp">-- °C</strong></p></div>
+      <div class="card"><h3>Temperature</h3><p><strong id="temp">-- °C</strong></p></div>
       <!-- Humidity sensor display card -->
-      <div class="card"><h3>Luftfeuchtigkeit</h3><p><strong id="humidity">-- %</strong></p></div>
+      <div class="card"><h3>Humidity</h3><p><strong id="humidity">-- %</strong></p></div>
       <!-- Light sensor display card -->
-      <div class="card"><h3>Helligkeit</h3><p><strong id="light">-- lx</strong></p></div>
+      <div class="card"><h3>Light</h3><p><strong id="light">-- lx</strong></p></div>
       <!-- Pump status display card -->
-      <div class="card"><h3>Pumpe</h3><p><strong id="pumpStatus">--</strong></p></div>
+      <div class="card"><h3>Pump</h3><p><strong id="pumpStatus">--</strong></p></div>
     </div>
   </section>
 
-  <!-- BEETEINSTELLUNGEN SECTION - Plant bed configuration and settings -->
+  <!-- BED SETTINGS SECTION - Plant bed configuration and settings -->
   <section id="beete">
-    <h2>Beeteinstellungen</h2>
+    <h2>Bed Settings</h2>
 
     <!-- Plant management subsection - Add new plants to the database -->
-    <h3>Pflanzenverwaltung</h3>
+    <h3>Plant Management</h3>
       <div class="card">
         <!-- Input field for new plant name -->
-        <input type="text" id="newPlantName" placeholder="Pflanzenname">
+        <input type="text" id="newPlantName" placeholder="Plant name">
         <!-- Input field for target moisture percentage for the new plant -->
-        <input type="number" id="newPlantMoisture" placeholder="Ziel-Feuchte %" min="0" max="100">
+        <input type="number" id="newPlantMoisture" placeholder="Target moisture %" min="0" max="100">
         <!-- Button to add the new plant to the database -->
-        <button onclick="addPlant()" class="button">➕ Hinzufügen</button>
+        <button onclick="addPlant()" class="button">➕ Add</button>
       </div>
     
       <!-- Plant deletion subsection -->
       <div class="card">
         <!-- Dropdown to select plant for deletion -->
         <select id="deletePlantSelect">
-          <option value="">-- Pflanze zum Löschen auswählen --</option>
+          <option value="">-- Select plant to delete --</option>
         </select>
         <!-- Button to delete the selected plant -->
-        <button onclick="deletePlant()" class="button button-danger">🗑️ Löschen</button>
+        <button onclick="deletePlant()" class="button button-danger">🗑️ Delete</button>
       </div>
     
 
     <!-- Individual bed settings - Configure each of the 5 plant beds -->
-    <h3>Beeteinstellungen</h3>
+    <h3>Bed Configuration</h3>
     <div class="sensor-grid">
       <!-- Bed 1 configuration card -->
       <div class="card">
-        <h4>Beet 1 Pflanze</h4>
+        <h4>Bed 1 Plant</h4>
         <!-- Dropdown to select plant type for bed 1, triggers moisture setting -->
         <select id="beet1Plant" onchange="setMoistureFromPlant(1)">
-          <option value="">-- auswählen --</option>
+          <option value="">-- select --</option>
         </select>
         <!-- Slider to manually set target moisture for bed 1 -->
         <input type="range" min="0" max="100" class="slider" id="beet1Target">
         <!-- Display current target moisture value -->
-        <p>Ziel-Feuchte: <span id="beet1TargetVal">--</span> %</p>
+        <p>Target moisture: <span id="beet1TargetVal">--</span> %</p>
       </div>
       <!-- Bed 2 configuration card (similar structure to bed 1) -->
       <div class="card">
-        <h4>Beet 2 Pflanze</h4>
+        <h4>Bed 2 Plant</h4>
         <select id="beet2Plant" onchange="setMoistureFromPlant(2)">
-          <option value="">-- auswählen --</option>
+          <option value="">-- select --</option>
         </select>
         <input type="range" min="0" max="100" class="slider" id="beet2Target">
-        <p>Ziel-Feuchte: <span id="beet2TargetVal">--</span> %</p>
+        <p>Target moisture: <span id="beet2TargetVal">--</span> %</p>
       </div>
       <!-- Bed 3 configuration card (similar structure to bed 1) -->
       <div class="card">
-        <h4>Beet 3 Pflanze</h4>
+        <h4>Bed 3 Plant</h4>
         <select id="beet3Plant" onchange="setMoistureFromPlant(3)">
-          <option value="">-- auswählen --</option>
+          <option value="">-- select --</option>
         </select>
         <input type="range" min="0" max="100" class="slider" id="beet3Target">
-        <p>Ziel-Feuchte: <span id="beet3TargetVal">--</span> %</p>
+        <p>Target moisture: <span id="beet3TargetVal">--</span> %</p>
       </div>
       <!-- Bed 4 configuration card (similar structure to bed 1) -->
       <div class="card">
-        <h4>Beet 4 Pflanze</h4>
+        <h4>Bed 4 Plant</h4>
         <select id="beet4Plant" onchange="setMoistureFromPlant(4)">
-          <option value="">-- auswählen --</option>
+          <option value="">-- select --</option>
         </select>
         <input type="range" min="0" max="100" class="slider" id="beet4Target">
-        <p>Ziel-Feuchte: <span id="beet4TargetVal">--</span> %</p>
+        <p>Target moisture: <span id="beet4TargetVal">--</span> %</p>
       </div>
       <!-- Bed 5 configuration card (similar structure to bed 1) -->
       <div class="card">
-        <h4>Beet 5 Pflanze</h4>
+        <h4>Bed 5 Plant</h4>
         <select id="beet5Plant" onchange="setMoistureFromPlant(5)">
-          <option value="">-- auswählen --</option>
+          <option value="">-- select --</option>
         </select>
         <input type="range" min="0" max="100" class="slider" id="beet5Target">
-        <p>Ziel-Feuchte: <span id="beet5TargetVal">--</span> %</p>
+        <p>Target moisture: <span id="beet5TargetVal">--</span> %</p>
       </div>
     </div>
     <!-- Light control settings -->
     <div class="card">
-      <h3>Lichtsteuerung</h3>
+      <h3>Light Control</h3>
       <!-- Label and input for required light level in lux -->
-      <label>Benötigte Helligkeit (Lux):</label>
+      <label>Required brightness (Lux):</label>
       <input type="number" id="lightTarget" min="0" max="10000">
     </div>
 
     <!-- Action buttons for saving and reloading configuration -->
-    <button onclick="saveConfig()" class="button">💾 Speichern</button>
-    <button onclick="loadConfig()" class="button">🔄 Neu laden</button>
+    <button onclick="saveConfig()" class="button">💾 Save</button>
+    <button onclick="loadConfig()" class="button">🔄 Reload</button>
   </section>
 
   <!-- SYSTEMSTATUS SECTION - System information and status -->
   <section id="system">
-    <h2>Systemstatus</h2>
+    <h2>System Status</h2>
     <div class="sensor-grid">
       <!-- WiFi connection status display -->
-      <div class="card"><h3>Verbindungsstatus</h3><p id="wifiStatus">--</p></div>
+      <div class="card"><h3>Connection Status</h3><p id="wifiStatus">--</p></div>
       <!-- System uptime display -->
       <div class="card"><h3>Uptime</h3><p id="uptime">--</p></div>
     </div>
   </section>
 
   <!-- Page footer with copyright information -->
-  <footer>© 2025 Hochbeet Steuerung - ESP32</footer>
+  <footer>© 2025 ESP32 Raised Bed Control</footer>
 </body>
 </html>

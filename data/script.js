@@ -48,7 +48,7 @@ function showSection(id) {
   document.getElementById(id).classList.add('active');
 }
 
-    // --- Live-Daten regelmäßig abrufen ---
+    // --- Fetch live data regularly ---
     // Set up periodic fetching of sensor data from the ESP32 server
     setInterval(() => {
       // Fetch sensor data from /data.json endpoint
@@ -111,8 +111,8 @@ function loadConfig() {
         body: JSON.stringify(cfg)  // Convert configuration object to JSON string
       })
         .then(res => res.text())  // Get response text
-        .then(msg => alert('✅ Konfiguration gespeichert!\n' + msg))  // Show success message
-        .catch(err => alert('❌ Fehler beim Speichern: ' + err));  // Show error message
+        .then(msg => alert('✅ Configuration saved!\n' + msg))  // Show success message
+        .catch(err => alert('❌ Error saving: ' + err));  // Show error message
     }// --- Slideranzeige aktualisieren ---
 // Set up event listeners when DOM is fully loaded
 window.addEventListener('DOMContentLoaded', () => {
@@ -148,7 +148,7 @@ function loadPlants() {
 function updatePlantDropdowns() {
   for (let i = 1; i <= 5; i++) {  // Loop through all 5 beds
     const sel = document.getElementById(`beet${i}Plant`);  // Get dropdown element
-    sel.innerHTML = '<option value="">-- auswählen --</option>';  // Reset with default option
+    sel.innerHTML = '<option value="">-- select --</option>';  // Reset with default option
     plants.forEach(p => {  // Add each plant as an option
       const opt = document.createElement('option');
       opt.value = p.name;
@@ -159,7 +159,7 @@ function updatePlantDropdowns() {
 
   // Also update the delete plant dropdown
   const deleteSel = document.getElementById('deletePlantSelect');
-  deleteSel.innerHTML = '<option value="">-- Pflanze zum Löschen auswählen --</option>';
+  deleteSel.innerHTML = '<option value="">-- Select plant to delete --</option>';
   plants.forEach(p => {
     const opt = document.createElement('option');
     opt.value = p.name;
@@ -174,7 +174,7 @@ function addPlant() {
   const name = document.getElementById('newPlantName').value.trim();
   const moisture = parseInt(document.getElementById('newPlantMoisture').value);
   // Validate inputs
-  if (!name || isNaN(moisture)) return alert('Bitte Name und Ziel-Feuchte angeben');
+  if (!name || isNaN(moisture)) return alert('Please enter name and target moisture');
 
   // Send new plant data to server
   fetch('/addPlant', {
@@ -184,14 +184,14 @@ function addPlant() {
   })
   .then(res => {
     if (res.status === 409) {  // Plant name already exists (HTTP 409 Conflict)
-      throw new Error('Eine Pflanze mit diesem Namen existiert bereits');
+      throw new Error('A plant with this name already exists');
     } else if (!res.ok) {  // Other server errors
-      throw new Error('Server-Fehler: ' + res.status);
+      throw new Error('Server error: ' + res.status);
     }
     return res.text();  // Get response text for success
   })
   .then(msg => {
-    alert('✅ Pflanze gespeichert!');
+    alert('✅ Plant saved!');
     // Clear input fields
     document.getElementById('newPlantName').value = '';
     document.getElementById('newPlantMoisture').value = '';
@@ -205,12 +205,12 @@ function deletePlant() {
   // Get selected plant name from dropdown
   const plantName = document.getElementById('deletePlantSelect').value;
   if (!plantName) {
-    alert('Bitte wählen Sie eine Pflanze zum Löschen aus');
+    alert('Please select a plant to delete');
     return;
   }
 
   // Confirm deletion with user
-  if (!confirm(`Sind Sie sicher, dass Sie die Pflanze "${plantName}" löschen möchten?`)) {
+  if (!confirm(`Are you sure you want to delete the plant "${plantName}"?`)) {
     return;
   }
 
@@ -222,14 +222,14 @@ function deletePlant() {
   })
   .then(res => {
     if (res.status === 404) {  // Plant not found
-      throw new Error('Pflanze nicht gefunden');
+      throw new Error('Plant not found');
     } else if (!res.ok) {  // Other server errors
-      throw new Error('Server-Fehler: ' + res.status);
+      throw new Error('Server error: ' + res.status);
     }
     return res.text();  // Get response text for success
   })
   .then(msg => {
-    alert('✅ Pflanze gelöscht!');
+    alert('✅ Plant deleted!');
     // Clear the delete dropdown selection
     document.getElementById('deletePlantSelect').value = '';
     loadPlants(); // Reload plant database to update all dropdowns
