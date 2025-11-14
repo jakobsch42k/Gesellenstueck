@@ -62,6 +62,16 @@ function showSection(id) {
           document.getElementById('pumpStatus').innerText = data.pumpStatus;     // Pump operational status
         })
         .catch(err => console.error('Fehler beim Datenabruf:', err));  // Log any fetch errors
+
+      // Fetch system status data from /systemStatus endpoint
+      fetch('/systemStatus')
+        .then(r => r.json())  // Parse JSON response
+        .then(data => {
+          // Update DOM elements with system status information
+          document.getElementById('wifiStatus').innerText = data.wifiStatus;     // WiFi connection status
+          document.getElementById('uptime').innerText = data.uptime;             // Server uptime
+        })
+        .catch(err => console.error('Fehler beim Systemstatus-Abruf:', err));  // Log any fetch errors
     }, 2000);  // Update every 2 seconds// --- Konfiguration laden ---
 // Function to load configuration from the ESP32 server
 function loadConfig() {

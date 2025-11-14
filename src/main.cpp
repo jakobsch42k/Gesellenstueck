@@ -282,6 +282,45 @@ void handleDeletePlant() {
   server.send(200, "text/plain", "OK");          // Send success response
 }
 
+// API endpoint handler for /systemStatus - returns system status information
+void handleSystemStatus() {
+  JsonDocument doc;                               // Create JSON document for system status
+
+  // Calculate uptime in seconds
+  unsigned long uptimeSeconds = millis() / 1000;
+
+  // Calculate uptime components
+  unsigned long days = uptimeSeconds / 86400;
+  unsigned long hours = (uptimeSeconds % 86400) / 3600;
+  unsigned long minutes = (uptimeSeconds % 3600) / 60;
+  unsigned long seconds = uptimeSeconds % 60;
+
+  // Format uptime string
+  String uptimeStr = "";
+  if (days > 0) uptimeStr += String(days) + "d ";
+  if (hours > 0 || days > 0) uptimeStr += String(hours) + "h ";
+  if (minutes > 0 || hours > 0 || days > 0) uptimeStr += String(minutes) + "m ";
+  uptimeStr += String(seconds) + "s";
+
+  // Get WiFi status information
+  String wifiStatus = "Nicht verbunden";
+  if (WiFi.status() == WL_CONNECTED) {
+    wifiStatus = "Verbunden - " + WiFi.SSID() + " (" + String(WiFi.RSSI()) + " dBm)";
+  } else if (WiFi.getMode() == WIFI_AP) {
+    wifiStatus = "Access Point - " + String(WiFi.softAPgetStationNum()) + " Clients";
+  }
+
+  // Add data to JSON document
+  doc["uptime"] = uptimeStr;
+  doc["wifiStatus"] = wifiStatus;
+  doc["freeHeap"] = ESP.getFreeHeap();
+  doc["cpuFreq"] = ESP.getCpuFreqMHz();
+
+  String json;                                   // String to hold the serialized JSON
+  serializeJson(doc, json);                      // Convert JSON document to string
+  server.send(200, "application/json", json);    // Send JSON response with HTTP 200 OK
+}
+
 // Arduino setup function - initializes hardware and starts services
 void setup() {
   Serial.begin(115200);                          // Initialize serial communication at 115200 baud
@@ -314,6 +353,7 @@ void setup() {
   server.on("/getPlants", handleGetPlants);      // Route for getting plant database
   server.on("/addPlant", HTTP_POST, handleAddPlant);  // Route for adding plants
   server.on("/deletePlant", HTTP_DELETE, handleDeletePlant);  // Route for deleting plants
+  server.on("/systemStatus", handleSystemStatus);  // Route for system status
   server.onNotFound(handleNotFound);             // Default handler for other requests
 
   Serial.println("HTTP-Server gestartet");
