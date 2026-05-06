@@ -1,0 +1,11 @@
+{
+	"folders": [
+		{
+			"name": "Gesellenstueck",
+			"path": ".."
+		}
+	],
+	"settings": {
+		"liveServer.settings.multiRootWorkspaceName": "Gesellenstueck"
+	}
+}
