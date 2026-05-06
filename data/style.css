@@ -13,9 +13,17 @@
 
   --accent:         #4caf78;
   --accent-dim:     #2d6b47;
-  --amber:          #c8a96e;
   --red:            #c0392b;
   --red-dim:        rgba(192, 57, 43, 0.15);
+
+  /* ── Gold system ────────────────────────────── */
+  --gold:           #c9a84c;
+  --gold-dim:       #a8872d;
+  --gold-bright:    #e0c56a;
+  --gold-subtle:    rgba(201, 168, 76, 0.12);
+  --gold-border:    rgba(201, 168, 76, 0.3);
+  --gold-glow:      rgba(201, 168, 76, 0.08);
+  --amber:          #c9a84c;
 
   --font-display: 'Space Grotesk', sans-serif;
   --font-mono:    'IBM Plex Mono', monospace;
@@ -41,7 +49,7 @@ body {
 
 header {
   background: var(--bg-surface);
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--gold-border);
   padding: 1.25rem 2rem;
   display: flex;
   align-items: baseline;
@@ -56,6 +64,7 @@ header h1 {
   letter-spacing: -0.02em;
   color: var(--text-primary);
   white-space: nowrap;
+  color: var(--gold);
 }
 
 header p {
@@ -91,12 +100,12 @@ nav button {
 
 nav button:hover {
   background: var(--bg-elevated);
-  color: var(--text-primary);
+  color: var(--gold-bright);
 }
 
 nav button.active {
-  color: var(--accent);
-  border-bottom-color: var(--accent);
+  color: var(--gold);
+  border-bottom-color: var(--gold);
 }
 
 /* ── Sections ──────────────────────────────────────────────────────────── */
@@ -124,7 +133,7 @@ section h2 {
   font-size: 2rem;
   font-weight: 800;
   letter-spacing: -0.02em;
-  color: var(--text-primary);
+  color: var(--gold-bright);
   margin-bottom: 1.5rem;
   text-align: left;
 }
@@ -135,10 +144,10 @@ section > h3 {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--text-muted);
+  color: var(--gold);
   margin: 2rem 0 1rem;
   padding-top: 1.5rem;
-  border-top: 1px solid var(--border-subtle);
+  border-top: 1px solid var(--gold-subtle);
 }
 
 section > h3:first-of-type {
@@ -167,7 +176,7 @@ section > h3:first-of-type {
 }
 
 .card:hover {
-  border-color: var(--border-default);
+  border-color: var(--gold-border);
 }
 
 .card-label,
@@ -178,7 +187,7 @@ section > h3:first-of-type {
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: var(--text-muted);
+  color: var(--gold-dim);
   margin-bottom: 0.5rem;
 }
 
@@ -243,7 +252,7 @@ section > h3:first-of-type {
 }
 
 .soil-bar-fill.low {
-  background: var(--amber);
+  background: var(--gold);
 }
 
 .soil-value {
@@ -299,7 +308,7 @@ section > h3:first-of-type {
 }
 
 .lp-col.active-hour .lp-bar {
-  background: var(--amber);
+  background: var(--gold);
 }
 
 .lp-input {
@@ -332,7 +341,7 @@ section > h3:first-of-type {
 }
 
 .lp-col.active-hour .lp-label {
-  color: var(--amber);
+  color: var(--gold);
 }
 
 /* ── Buttons ───────────────────────────────────────────────────────────── */
@@ -340,20 +349,22 @@ section > h3:first-of-type {
 .button {
   display: inline-block;
   background: transparent;
-  border: 1px solid var(--border-strong);
-  color: var(--accent);
+  border: 1px solid var(--gold-border);
+  color: var(--gold);
   padding: 0.6rem 1.4rem;
   border-radius: 4px;
   font-family: var(--font-ui);
   font-size: 0.9rem;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
   margin: 0.25rem 0.25rem 0.25rem 0;
 }
 
 .button:hover {
-  background: var(--bg-elevated);
+  background: var(--gold-subtle);
+  border-color: var(--gold);
+  color: var(--gold-bright);
 }
 
 .button-danger {
@@ -363,6 +374,8 @@ section > h3:first-of-type {
 
 .button-danger:hover {
   background: var(--red-dim);
+  border-color: rgba(192, 57, 43, 0.5);
+  color: var(--red);
 }
 
 .button-emergency {
@@ -380,6 +393,8 @@ section > h3:first-of-type {
 
 .button-emergency:hover {
   background: var(--red-dim);
+  border-color: var(--red);
+  color: var(--red);
 }
 
 .button-row {
@@ -425,8 +440,8 @@ section > h3:first-of-type {
   width: 14px;
   height: 14px;
   border-radius: 2px;
-  background: var(--accent);
-  border: 2px solid var(--text-primary);
+  background: var(--gold);
+  border: 2px solid var(--gold-bright);
   cursor: pointer;
 }
 
@@ -434,8 +449,8 @@ section > h3:first-of-type {
   width: 14px;
   height: 14px;
   border-radius: 2px;
-  background: var(--accent);
-  border: 2px solid var(--text-primary);
+  background: var(--gold);
+  border: 2px solid var(--gold-bright);
   cursor: pointer;
 }
 
@@ -462,7 +477,7 @@ input[type="text"]:focus,
 input[type="datetime-local"]:focus,
 select:focus {
   outline: none;
-  border-color: var(--accent);
+  border-color: var(--gold);
 }
 
 select option {
@@ -472,11 +487,11 @@ select option {
 /* ── Warning banner ────────────────────────────────────────────────────── */
 
 .warning-banner {
-  border-left: 3px solid var(--amber);
-  background: rgba(200, 169, 110, 0.08);
+  border-left: 3px solid var(--gold);
+  background: var(--gold-glow);
   padding: 1rem 1.25rem;
   border-radius: 0 4px 4px 0;
-  color: var(--amber);
+  color: var(--gold-bright);
   font-size: 0.9rem;
   margin: 1.5rem 0;
 }
@@ -510,8 +525,8 @@ select option {
 footer {
   text-align: center;
   padding: 1.5rem;
-  color: var(--text-muted);
-  border-top: 1px solid var(--border-subtle);
+  color: var(--gold-dim);
+  border-top: 1px solid var(--gold-border);
   margin-top: 4rem;
   font-family: var(--font-mono);
   font-size: 0.7rem;

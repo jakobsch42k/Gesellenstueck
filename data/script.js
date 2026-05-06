@@ -1,41 +1,3 @@
-/*
- * ESP32 Plant Bed Control - JavaScript Inte    // --- Konfiguration laden ---
-    // Function to load configuration from the ESP32 server
-    function loadConfig() {
-      // Fetch configuration data from /loadConfig endpoint
-      fetch('/loadConfig')
-        .then(r => r.json())  // Parse JSON response containing configuration
-        .then(cfg => {
-          // Update each bed's moisture target slider and display value
-          for (let i = 1; i <= 5; i++) {
-            const val = cfg[`moisture${i}`];  // Get moisture value for bed i
-            document.getElementById(`beet${i}Target`).value = val;  // Set slider value
-            document.getElementById(`beet${i}TargetVal`).innerText = val;  // Update display text
-          }
-          // Update light target input field
-          document.getElementById('lightTarget').value = cfg.lux;
-        })
-        .then(() =>console.log('Configuration loaded'))
-        .catch(err => console.error('Error loading config:', err));
-    }his script handles the client-side functionality for the ESP32 plant bed
- * control web interface. It manages:
- *
- * - Tab navigation between different sections (dashboard, settings, system)
- * - Real-time sensor data updates from the ESP32 server
- * - Configuration loading and saving (moisture targets, light settings)
- * - Plant database management (adding plants, assigning to beds)
- * - Dynamic UI updates (slider values, dropdowns)
- *
- * The script uses fetch API for HTTP requests to the ESP32 web server
- * and manipulates the DOM to update the user interface dynamically.
- *
- * Key functions:
- * - showSection(): Tab switching functionality
- * - loadConfig()/saveConfig(): Configuration management
- * - loadPlants()/addPlant(): Plant database operations
- * - Real-time data updates via setInterval
- */
-
 // Tab navigation function - switches between different sections of the interface
 function showSection(id) {
   // Remove 'active' class from all navigation buttons
@@ -56,15 +18,15 @@ function showSection(id) {
         .then(r => r.json())  // Parse JSON response
         .then(data => {
           // Update DOM elements with current sensor readings
-          document.getElementById('temp').firstChild.textContent     = data.temperature;
-          document.getElementById('humidity').firstChild.textContent = data.humidity;
-          document.getElementById('light').firstChild.textContent    = data.light;
+          document.getElementById('temp').firstChild.textContent     = data.tempC;
+          document.getElementById('humidity').firstChild.textContent = data.humPerc;
+          document.getElementById('light').firstChild.textContent    = data.lux;
           document.getElementById('pumpStatus').innerText            = data.pumpStatus;
           updateMaintenanceUI(!!data.MAINTENANCE_MODE);
 
-          if (data.bedMoisture) {
+          if (data.soilPerc) {
             for (let i = 1; i <= 5; i++) {
-              const moisture = data.bedMoisture[i - 1];
+              const moisture = data.soilPerc[i - 1];
               document.getElementById(`bed${i}_moisture`).innerText = moisture;
               const fill = document.getElementById(`bed${i}_visual`);
               fill.style.width = moisture + '%';
@@ -79,7 +41,7 @@ function showSection(id) {
         .then(r => r.json())  // Parse JSON response
         .then(data => {
           // Update DOM elements with system status information
-          document.getElementById('wifiStatus').innerText = data.wifiStatus;     // WiFi connection status
+          document.getElementById('wifiStatus').innerText = data.wifi;           // WiFi connection status
           document.getElementById('uptime').innerText = data.uptime;             // Server uptime
         })
         .catch(err => console.error('Error fetching system status:', err));
@@ -89,15 +51,16 @@ function showSection(id) {
         .then(r => r.json())  // Parse JSON response
         .then(data => {
           // Update sensor raw values
-          document.getElementById('diag_moisture1').innerText = data.moisture[0];
-          document.getElementById('diag_moisture2').innerText = data.moisture[1];
-          document.getElementById('diag_moisture3').innerText = data.moisture[2];
-          document.getElementById('diag_moisture4').innerText = data.moisture[3];
-          document.getElementById('diag_moisture5').innerText = data.moisture[4];
+          document.getElementById('diag_moisture1').innerText = data.soilRaw[0];
+          document.getElementById('diag_moisture2').innerText = data.soilRaw[1];
+          document.getElementById('diag_moisture3').innerText = data.soilRaw[2];
+          document.getElementById('diag_moisture4').innerText = data.soilRaw[3];
+          document.getElementById('diag_moisture5').innerText = data.soilRaw[4];
           document.getElementById('diag_temperature').firstChild.textContent = data.temperature;
           document.getElementById('diag_humidity').firstChild.textContent    = data.humidity;
           document.getElementById('diag_light').firstChild.textContent       = data.light;
-          document.getElementById('diag_water_level').innerText = data.waterLevel;
+          document.getElementById('diag_water_low').innerText      = data.waterLow;
+          document.getElementById('diag_water_critical').innerText = data.waterCritical;
           
           // Update system states
           document.getElementById('diag_roof_contact').innerText = data.roofContact;
@@ -416,7 +379,7 @@ function setSysTime() {
   })
   .then(() =>{
     document.getElementById('timeStatus').innerText = 'Time set successfully';
-    document.getElementById('timeStatus').style.color = 'var(--success)';
+    document.getElementById('timeStatus').style.color = 'var(--accent)';
     setTimeout(() => {
       document.getElementById('timeStatus').innerText = '';
     }, 3000);
@@ -424,7 +387,7 @@ function setSysTime() {
   .catch(err => {
     console.error(`Error: ${err.message}`);
     document.getElementById('timeStatus').innerText = `Error: ${err.message}`;
-    document.getElementById('timeStatus').style.color = 'var(--error)';
+    document.getElementById('timeStatus').style.color = 'var(--red)';
   });
 }
 
@@ -499,16 +462,13 @@ function ackErrors() {
 
 // Function to trigger emergency stop
 function emergencyStop() {
-  if (confirm('Confirm: EMERGENCY STOP will immediately deactivate all actuators.')) {
-    sendManualCommand('emergency_stop', 'emergency');
-    document.getElementById('emergency_last').innerText = new Date().toLocaleTimeString();
-    // Force maintenance mode ON so manual controls are visible
-    fetch('/manual', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ command: 'maintenance_on' })
-    }).then(() => updateMaintenanceUI(true));
-  }
+  sendManualCommand('emergency_stop', 'emergency');
+  document.getElementById('emergency_last').innerText = new Date().toLocaleTimeString();
+  fetch('/manual', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ command: 'maintenance_on' })
+  }).then(() => updateMaintenanceUI(true));
 }
 
 // Generic function to send manual control commands
@@ -552,12 +512,4 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
   loadPlants();  // Load plant database and populate dropdowns
-  
-  for (let i = 1; i <= 5; i++) {
-    const randomMoisture = Math.floor(Math.random() * 100);
-    document.getElementById(`bed${i}_moisture`).innerText = randomMoisture;
-    const fill = document.getElementById(`bed${i}_visual`);
-    fill.style.width = randomMoisture + '%';
-    fill.classList.toggle('low', randomMoisture < 30);
-  }
 });

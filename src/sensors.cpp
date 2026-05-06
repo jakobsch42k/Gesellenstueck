@@ -15,9 +15,9 @@
 // static unsigned long  lastLuxSample = 0;
 
 // Soil sensor ADC pins in index order
-// static const int SOIL_PINS[5] = {
-//     SOIL_PIN_1, SOIL_PIN_2, SOIL_PIN_3, SOIL_PIN_4, SOIL_PIN_5
-// };
+static const int SOIL_PINS[5] = {
+    SOIL_PIN_1, SOIL_PIN_2, SOIL_PIN_3, SOIL_PIN_4, SOIL_PIN_5
+};
 
 // Time tracking
 static unsigned long lastTimeUpdate = 0;
@@ -74,6 +74,11 @@ void sensors_init(LiveData& data, ErrorFlags& err, const Config& cfg) {
     data.waterLow      = true;
     data.waterCritical = true;
     data.roofClosed    = false;
+
+    for (int i = 0; i < 5; i++) {
+        data.soilRaw[i]  = 0;
+        data.soilPerc[i] = 0;
+    }
 
     // Flag sensors as absent so modules use their open-loop fallbacks
     err.ERR_SENSOR_BME = true;

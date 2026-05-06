@@ -10,7 +10,7 @@
 #define DEFAULT_MOISTURE            40    // Target soil moisture per bed (%)
 #define DEFAULT_TEMP_TARGET         25.0f // Target temperature (°C)
 #define DEFAULT_TEMP_HYSTERESIS      1.0f // Hysteresis band (°C)
-#define DEFAULT_LUX_TARGET          500   // Base lux setpoint
+#define DEFAULT_LUX_TARGET         500    // Base lux setpoint
 
 // ── Timing Defaults (all in milliseconds) ────────────────────────────────────
 #define DEFAULT_ROOF_OPEN_MS       1000UL  // Motor run time to open roof
@@ -19,8 +19,8 @@
 #define DEFAULT_IRRIGATE_PAUSE   600000UL  // Diffusion pause between cycles
 
 // ── ADC Calibration ──────────────────────────────────────────────────────────
-#define DEFAULT_SOIL_DRY           2800   // ADC count for completely dry sensor
-#define DEFAULT_SOIL_WET           1200   // ADC count for saturated sensor
+#define DEFAULT_SOIL_DRY           3500   // ADC count for completely dry sensor
+#define DEFAULT_SOIL_WET            800   // ADC count for saturated sensor
 #define SOIL_ADC_MIN                 50   // Below this → sensor fault
 #define SOIL_ADC_MAX               4000   // Above this → sensor fault
 #define SOIL_ADC_SAMPLES             10   // Averaged readings per sensor per cycle

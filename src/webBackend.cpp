@@ -126,6 +126,9 @@ static void handleData() {
     doc["roofClosed"]    = liveData->roofClosed;
     doc["timeOfDay"]     = liveData->timeOfDay;
 
+    const char* irrStr[] = {"IDLE", "PUMPING", "PAUSING"};
+    doc["pumpStatus"]    = irrStr[(int)irrigation_getState()];
+
     doc["ERR_ROOF_TIMEOUT"]   = errFlags->ERR_ROOF_TIMEOUT;
     doc["ERR_WATER_CRITICAL"] = errFlags->ERR_WATER_CRITICAL;
     doc["ERR_FS_MOUNT"]       = errFlags->ERR_FS_MOUNT;
@@ -314,22 +317,53 @@ static void handleManual() {
 static void handleDiagnostics() {
     JsonDocument doc;
 
+    // Sensor raw values
     JsonArray rawSoil = doc["soilRaw"].to<JsonArray>();
     for (int i = 0; i < 5; i++) rawSoil.add(liveData->soilRaw[i]);
 
-    JsonArray errSoil = doc["ERR_SOIL"].to<JsonArray>();
-    for (int i = 0; i < 5; i++) errSoil.add(errFlags->ERR_SOIL[i]);
+    doc["temperature"] = liveData->tempC;
+    doc["humidity"]    = liveData->humPerc;
+    doc["light"]       = liveData->lux;
 
-    const char* roofStr[] = {"IDLE", "OPENING", "OPEN", "CLOSING", "CLOSED", "ERROR"};
-    doc["roofState"] = roofStr[(int)roofControl_getState()];
+    doc["waterLow"]      = liveData->waterLow      ? "OK" : "Low";
+    doc["waterCritical"] = liveData->waterCritical ? "OK" : "CRITICAL";
+
+    // System states
+    doc["roofContact"] = liveData->roofClosed ? "Closed" : "Open";
 
     const char* irrStr[] = {"IDLE", "PUMPING", "PAUSING"};
-    doc["irrigationState"] = irrStr[(int)irrigation_getState()];
-    doc["irrigationBed"]   = irrigation_getActiveBed();
+    doc["pumpStatus"] = irrStr[(int)irrigation_getState()];
 
-    doc["lightPWM"]  = lightManagement_getCurrentPWM();
-    doc["freeHeap"]  = ESP.getFreeHeap();
-    doc["timeOfDay"] = liveData->timeOfDay;
+    // Active error flags as a comma-separated string
+    String flags = "";
+    if (errFlags->EMERGENCY_STOP)     flags += "EMERGENCY_STOP, ";
+    if (errFlags->ERR_WATER_CRITICAL) flags += "WATER_CRITICAL, ";
+    if (errFlags->ERR_ROOF_TIMEOUT)   flags += "ROOF_TIMEOUT, ";
+    if (errFlags->ERR_FS_MOUNT)       flags += "FS_MOUNT, ";
+    if (errFlags->ERR_SENSOR_BME)     flags += "NO_BME, ";
+    if (errFlags->ERR_SENSOR_BH)      flags += "NO_BH, ";
+    for (int i = 0; i < 5; i++) {
+        if (errFlags->ERR_SOIL[i]) flags += "SOIL" + String(i + 1) + ", ";
+    }
+    if (flags.length() > 2) flags = flags.substring(0, flags.length() - 2);
+    doc["errorFlags"] = flags.length() ? flags : "None";
+
+    // System information
+    if (WiFi.getMode() == WIFI_AP)
+        doc["commStatus"] = "AP — " + String(WiFi.softAPgetStationNum()) + " client(s), IP " + WiFi.softAPIP().toString();
+    else
+        doc["commStatus"] = WiFi.SSID() + " — " + WiFi.localIP().toString();
+
+    const char* roofStr[] = {"IDLE", "OPENING", "OPEN", "CLOSING", "CLOSED", "ERROR"};
+    doc["moduleStatus"] = String("Roof: ") + roofStr[(int)roofControl_getState()] +
+                          " | Irr: " + irrStr[(int)irrigation_getState()] +
+                          " | LED PWM: " + String(lightManagement_getCurrentPWM());
+
+    doc["voltage"]  = "N/A";
+    doc["freeHeap"] = ESP.getFreeHeap();
+
+    JsonArray errSoil = doc["ERR_SOIL"].to<JsonArray>();
+    for (int i = 0; i < 5; i++) errSoil.add(errFlags->ERR_SOIL[i]);
 
     String json;
     serializeJson(doc, json);
