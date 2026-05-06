@@ -44,7 +44,8 @@ void SystemController::init() {
         [this](unsigned long ts)    { sensors_setTime(liveData, ts); }
     );
 
-    Serial.println("[systemController] boot complete");
+    errorFlags.MAINTENANCE_MODE = true;
+    Serial.println("[systemController] boot complete — starting in maintenance mode");
 }
 
 void SystemController::run() {
@@ -69,10 +70,11 @@ void SystemController::run() {
         led_warn_off();
     }
 
-    // 4. Regulation — skipped when filesystem is down or a critical fault is active
+    // 4. Regulation — skipped during critical faults or maintenance mode
     bool criticalFault = errorFlags.EMERGENCY_STOP ||
                          errorFlags.ERR_WATER_CRITICAL ||
-                         errorFlags.ERR_FS_MOUNT;
+                         errorFlags.ERR_FS_MOUNT      ||
+                         errorFlags.MAINTENANCE_MODE;
 
     if (!criticalFault) {
         roofControl_update(liveData, config, errorFlags);
@@ -105,6 +107,15 @@ void SystemController::handleManualCommand(String cmd, int val) {
         errorFlags.lastErrorMessage  = "Emergency stop triggered via web UI";
         emergency_stop_all();
     }
+    else if (cmd == "maintenance_on") {
+        errorFlags.MAINTENANCE_MODE = true;
+        Serial.println("[systemController] maintenance mode ON");
+    }
+    else if (cmd == "maintenance_off") {
+        errorFlags.MAINTENANCE_MODE = false;
+        lightManagement_resetPWM();
+        Serial.println("[systemController] maintenance mode OFF");
+    }
     else {
         Serial.println("[systemController] unknown manual command: " + cmd);
     }
@@ -119,6 +130,7 @@ void SystemController::handleAckErrors() {
     errorFlags.lastErrorMessage   = "";
 
     roofControl_ackError(errorFlags);
+    lightManagement_resetPWM();
 
     Serial.println("[systemController] errors acknowledged");
 }

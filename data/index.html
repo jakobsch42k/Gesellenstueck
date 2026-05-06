@@ -4,8 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Raised Bed Control</title>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css">
   <script src="script.js" defer></script>
 </head>
 <body>
@@ -226,19 +225,25 @@
   <section id="manual">
     <h2>Manual Control</h2>
 
-    <div class="warning-banner">
-      <strong>Maintenance mode:</strong> Direct actuator control bypasses automatic safety systems.
+    <div class="warning-banner" id="maintenanceBanner">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap">
+        <span id="maintenanceStatus"><strong>Maintenance Mode:</strong> Off — automatic regulation is running.</span>
+        <button class="button" id="maintenanceBtn" onclick="toggleMaintenance()">Activate</button>
+      </div>
     </div>
 
     <h3>Emergency Stop</h3>
     <div class="sensor-grid">
-      <div class="card emergency-card">
+      <div class="card emergency-card" style="grid-column:1/-1">
         <h4>Immediate Shutdown</h4>
         <p>Deactivates all actuators immediately and sets the emergency stop flag.</p>
         <button class="button button-emergency" onclick="emergencyStop()">EMERGENCY STOP</button>
         <p>Last triggered: <span id="emergency_last">Never</span></p>
+        <button class="button" style="margin-top:1rem" onclick="ackErrors()">Reset Emergency Stop</button>
       </div>
     </div>
+
+    <div id="manualControls" style="display:none">
 
     <h3>Pump</h3>
     <div class="sensor-grid">
@@ -325,6 +330,8 @@
         <p>Status: <span id="manual_led_status">--</span></p>
       </div>
     </div>
+
+    </div> <!-- #manualControls -->
 
   </section>
 

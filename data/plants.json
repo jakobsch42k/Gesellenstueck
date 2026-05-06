@@ -1,0 +1,7 @@
+[
+  { "name": "Tomato",   "targetMoisture": 65 },
+  { "name": "Lettuce",  "targetMoisture": 75 },
+  { "name": "Basil",    "targetMoisture": 60 },
+  { "name": "Cucumber", "targetMoisture": 70 },
+  { "name": "Pepper",   "targetMoisture": 55 }
+]

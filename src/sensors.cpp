@@ -75,6 +75,10 @@ void sensors_init(LiveData& data, ErrorFlags& err, const Config& cfg) {
     data.waterCritical = true;
     data.roofClosed    = false;
 
+    // Flag sensors as absent so modules use their open-loop fallbacks
+    err.ERR_SENSOR_BME = true;
+    err.ERR_SENSOR_BH  = true;
+
     // Do an initial read to populate LiveData before first loop
     sensors_update(data, err, cfg);
 

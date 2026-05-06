@@ -130,6 +130,7 @@ static void handleData() {
     doc["ERR_WATER_CRITICAL"] = errFlags->ERR_WATER_CRITICAL;
     doc["ERR_FS_MOUNT"]       = errFlags->ERR_FS_MOUNT;
     doc["EMERGENCY_STOP"]     = errFlags->EMERGENCY_STOP;
+    doc["MAINTENANCE_MODE"]   = errFlags->MAINTENANCE_MODE;
     doc["ERR_SENSOR_BME"]     = errFlags->ERR_SENSOR_BME;
     doc["ERR_SENSOR_BH"]      = errFlags->ERR_SENSOR_BH;
     doc["lastErrorMessage"]   = errFlags->lastErrorMessage;
@@ -414,6 +415,11 @@ void webBackend_init(const LiveData& data, Config& config, ErrorFlags& err) {
     WiFi.mode(WIFI_AP);
     WiFi.softAP(WIFI_SSID, WIFI_PASS, 6);
     Serial.println("[webBackend] AP started — IP: " + WiFi.softAPIP().toString());
+
+    server.on("/",            HTTP_GET, []() { serveFile("/index.html"); });
+    server.on("/index.html",  HTTP_GET, []() { serveFile("/index.html"); });
+    server.on("/style.css",   HTTP_GET, []() { serveFile("/style.css");  });
+    server.on("/script.js",   HTTP_GET, []() { serveFile("/script.js");  });
 
     server.on("/data.json",    HTTP_GET,    handleData);
     server.on("/systemStatus", HTTP_GET,    handleSystemStatus);

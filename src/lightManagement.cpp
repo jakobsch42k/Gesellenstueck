@@ -56,3 +56,7 @@ void lightManagement_update(const LiveData& data, const Config& cfg, const Error
 int lightManagement_getCurrentPWM() {
     return currentPWM;
 }
+
+void lightManagement_resetPWM() {
+    currentPWM = -1; // force recalculation on next update
+}

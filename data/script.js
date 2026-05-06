@@ -15,7 +15,7 @@
           // Update light target input field
           document.getElementById('lightTarget').value = cfg.lux;
         })
-        .then(msg => console.log('Configuration loaded'))
+        .then(() =>console.log('Configuration loaded'))
         .catch(err => console.error('Error loading config:', err));
     }his script handles the client-side functionality for the ESP32 plant bed
  * control web interface. It manages:
@@ -60,6 +60,7 @@ function showSection(id) {
           document.getElementById('humidity').firstChild.textContent = data.humidity;
           document.getElementById('light').firstChild.textContent    = data.light;
           document.getElementById('pumpStatus').innerText            = data.pumpStatus;
+          updateMaintenanceUI(!!data.MAINTENANCE_MODE);
 
           if (data.bedMoisture) {
             for (let i = 1; i <= 5; i++) {
@@ -134,7 +135,7 @@ function loadConfig() {
         }
       }
     })
-    .then(msg => console.log('Configuration loaded'))
+    .then(() =>console.log('Configuration loaded'))
     .catch(err => console.error('Error loading config:', err));
 }
 
@@ -163,7 +164,7 @@ function loadConfig() {
         body: JSON.stringify(cfg)  // Convert configuration object to JSON string
       })
         .then(res => res.text())  // Get response text
-        .then(msg => alert('Configuration saved.'))
+        .then(() =>alert('Configuration saved.'))
         .catch(err => alert('Error saving: ' + err));
     }// --- Light profile grid builder ---
 function buildLightProfileGrid() {
@@ -295,7 +296,7 @@ function addPlant() {
     }
     return res.text();  // Get response text for success
   })
-  .then(msg => {
+  .then(() =>{
     alert('Plant saved!');
     // Clear input fields
     document.getElementById('newPlantName').value = '';
@@ -333,7 +334,7 @@ function deletePlant() {
     }
     return res.text();  // Get response text for success
   })
-  .then(msg => {
+  .then(() =>{
     alert('Plant deleted!');
     // Clear the delete dropdown selection
     document.getElementById('deletePlantSelect').value = '';
@@ -375,7 +376,8 @@ function autoSetTime() {
   const input = document.getElementById('timeInput');
   if (input) input.value = toLocalDatetimeString(now);
 
-  const unixTimestamp = Math.floor(now.getTime() / 1000);
+  // Send local seconds-since-midnight so ESP32 hour matches the highlighted bar
+  const unixTimestamp = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
   fetch('/setTime', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -398,9 +400,9 @@ function setSysTime() {
     return;
   }
 
-  // Parse the datetime-local format (YYYY-MM-DDTHH:mm)
+  // Parse the datetime-local format (YYYY-MM-DDTHH:mm) — getHours() returns local time
   const dateObj = new Date(timeInput);
-  const unixTimestamp = Math.floor(dateObj.getTime() / 1000);
+  const unixTimestamp = dateObj.getHours() * 3600 + dateObj.getMinutes() * 60 + dateObj.getSeconds();
 
   // Send time to server
   fetch('/setTime', {
@@ -412,7 +414,7 @@ function setSysTime() {
     if (!res.ok) throw new Error(`Error: ${res.status}`);
     return res.text();
   })
-  .then(msg => {
+  .then(() =>{
     document.getElementById('timeStatus').innerText = 'Time set successfully';
     document.getElementById('timeStatus').style.color = 'var(--success)';
     setTimeout(() => {
@@ -434,8 +436,8 @@ function controlPump(state) {
 
 // Function to control solenoid valves (open/close)
 function controlValve(valve, state) {
-  const command = state ? `valve${valve}_open` : `valve${valve}_close`;
-  sendManualCommand(command, `valve${valve}`);
+  const command = state ? 'valve_open' : 'valve_close';
+  sendManualCommand(command, `valve${valve}`, valve);
 }
 
 // Function to control roof motor (open/close/stop)
@@ -449,11 +451,63 @@ function setLEDBrightness() {
   sendManualCommand(`led_pwm`, 'led', pwmValue);
 }
 
+// Function to toggle maintenance mode on/off
+function toggleMaintenance() {
+  const active = document.getElementById('maintenanceBtn').dataset.active === 'true';
+  const cmd = active ? 'maintenance_off' : 'maintenance_on';
+  fetch('/manual', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ command: cmd })
+  })
+  .then(res => { if (!res.ok) throw new Error(res.status); })
+  .then(() => updateMaintenanceUI(!active))
+  .catch(err => alert('Error: ' + err));
+}
+
+function updateMaintenanceUI(active) {
+  const btn    = document.getElementById('maintenanceBtn');
+  const status = document.getElementById('maintenanceStatus');
+  const banner = document.getElementById('maintenanceBanner');
+  if (!btn) return;
+  btn.dataset.active = active;
+  const mc = document.getElementById('manualControls');
+  if (active) {
+    btn.textContent    = 'Deactivate';
+    status.innerHTML   = '<strong>Maintenance Mode:</strong> ON — automatic regulation paused.';
+    banner.style.borderLeftColor = 'var(--accent)';
+    banner.style.background      = 'rgba(76, 175, 120, 0.08)';
+    banner.style.color           = 'var(--accent)';
+    if (mc) mc.style.display = '';
+  } else {
+    btn.textContent    = 'Activate';
+    status.innerHTML   = '<strong>Maintenance Mode:</strong> Off — automatic regulation is running.';
+    banner.style.borderLeftColor = '';
+    banner.style.background      = '';
+    banner.style.color           = '';
+    if (mc) mc.style.display = 'none';
+  }
+}
+
+// Function to reset emergency stop and all latching error flags
+function ackErrors() {
+  fetch('/ackErrors', { method: 'POST', headers: { 'Content-Type': 'application/json' } })
+    .then(res => { if (!res.ok) throw new Error(res.status); return res.text(); })
+    .then(() => { document.getElementById('emergency_last').innerText = 'Never (reset)'; })
+    .catch(err => alert('Reset failed: ' + err));
+}
+
 // Function to trigger emergency stop
 function emergencyStop() {
   if (confirm('Confirm: EMERGENCY STOP will immediately deactivate all actuators.')) {
     sendManualCommand('emergency_stop', 'emergency');
     document.getElementById('emergency_last').innerText = new Date().toLocaleTimeString();
+    // Force maintenance mode ON so manual controls are visible
+    fetch('/manual', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ command: 'maintenance_on' })
+    }).then(() => updateMaintenanceUI(true));
   }
 }
 
@@ -471,7 +525,7 @@ function sendManualCommand(command, component, value = null) {
     if (!res.ok) throw new Error(`Error: ${res.status}`);
     return res.text();
   })
-  .then(msg => {
+  .then(() =>{
     console.log(`${command} executed`);
     // Show brief feedback
     const statusId = `manual_${component}_status`;

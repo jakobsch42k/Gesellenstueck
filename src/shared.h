@@ -54,6 +54,7 @@ struct ErrorFlags {
     bool   ERR_WATER_CRITICAL;  // BG2 triggered → pump and valves locked
     bool   ERR_FS_MOUNT;        // LittleFS could not be mounted
     bool   EMERGENCY_STOP;      // Manual emergency stop via web UI
+    bool   MAINTENANCE_MODE;    // Automatic regulation paused; manual control only
 
     // Operational — reduced function
     bool   ERR_SENSOR_BME;      // BME280 unreachable on I2C
