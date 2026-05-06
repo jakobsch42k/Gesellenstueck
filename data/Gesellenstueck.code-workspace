@@ -6,6 +6,7 @@
 		}
 	],
 	"settings": {
-		"liveServer.settings.multiRootWorkspaceName": "Gesellenstueck"
+		"liveServer.settings.multiRootWorkspaceName": "Gesellenstueck",
+		"claudeCodeChat.permissions.yoloMode": false
 	}
 }
