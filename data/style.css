@@ -62,9 +62,12 @@ header h1 {
   font-size: 2rem;
   font-weight: 800;
   letter-spacing: -0.02em;
-  color: var(--text-primary);
-  white-space: nowrap;
   color: var(--gold);
+  white-space: nowrap;
+  text-shadow:
+    0 0 8px  rgba(76, 175, 120, 0.8),
+    0 0 20px rgba(76, 175, 120, 0.4),
+    0 0 40px rgba(76, 175, 120, 0.2);
 }
 
 header p {

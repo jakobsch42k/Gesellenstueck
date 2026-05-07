@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Raised Bed Control</title>
-<link rel="stylesheet" href="style.css">
+  <title>Greenhouse Control</title>
+  <link rel="stylesheet" href="style.css">
   <script src="script.js" defer></script>
 </head>
 <body>
@@ -24,6 +24,8 @@
 
   <!-- DASHBOARD -->
   <section id="dashboard" class="active">
+    <button class="button button-emergency" onclick="emergencyStop()">EMERGENCY STOP</button>
+
     <h2>Live Data</h2>
 
     <div class="sensor-grid">
