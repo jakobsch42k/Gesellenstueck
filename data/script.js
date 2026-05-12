@@ -70,7 +70,6 @@ function showSection(id) {
           // Update system information
           document.getElementById('diag_comm_status').innerText = data.commStatus;
           document.getElementById('diag_module_status').innerText = data.moduleStatus;
-          document.getElementById('diag_voltage').firstChild.textContent   = data.voltage;
           document.getElementById('diag_free_heap').firstChild.textContent = (data.freeHeap / 1024).toFixed(1);
         })
         .catch(err => console.error('Error fetching diagnostics:', err));
