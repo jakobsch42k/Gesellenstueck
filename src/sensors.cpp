@@ -133,26 +133,25 @@ void sensors_update(LiveData& data, ErrorFlags& err, const Config& cfg) {
     //     }
     // }
 
-    // // ── Soil moisture sensors ────────────────────────────────────────────────
-    // for (int i = 0; i < 5; i++) {
-    //     long sum = 0;
-    //     for (int s = 0; s < SOIL_ADC_SAMPLES; s++) {
-    //         sum += analogRead(SOIL_PINS[i]);
-    //     }
-    //     int raw = (int)(sum / SOIL_ADC_SAMPLES);
-    //     data.soilRaw[i] = raw;
+    // ── Soil moisture sensors ────────────────────────────────────────────────
+    for (int i = 0; i < 5; i++) {
+        long sum = 0;
+        for (int s = 0; s < SOIL_ADC_SAMPLES; s++) {
+            sum += analogRead(SOIL_PINS[i]);
+        }
+        int raw = (int)(sum / SOIL_ADC_SAMPLES);
+        data.soilRaw[i] = raw;
 
-    //     // Plausibility check
-    //     if (raw < SOIL_ADC_MIN || raw > SOIL_ADC_MAX) {
-    //         err.ERR_SOIL[i] = true;
-    //         Serial.println("[sensors] WARNING: soil sensor " + String(i + 1) +
-    //                        " out of range (" + String(raw) + ")");
-    //     } else {
-    //         err.ERR_SOIL[i] = false;
-    //         int perc = map(raw, cfg.soilDryValue, cfg.soilWetValue, 0, 100);
-    //         data.soilPerc[i] = constrain(perc, 0, 100);
-    //     }
-    // }
+        if (raw < SOIL_ADC_MIN || raw > SOIL_ADC_MAX) {
+            err.ERR_SOIL[i] = true;
+            Serial.println("[sensors] WARNING: soil sensor " + String(i + 1) +
+                           " out of range (" + String(raw) + ")");
+        } else {
+            err.ERR_SOIL[i] = false;
+            int perc = map(raw, cfg.soilDryValue, cfg.soilWetValue, 0, 100);
+            data.soilPerc[i] = constrain(perc, 0, 100);
+        }
+    }
 
     // // ── Digital inputs ───────────────────────────────────────────────────────
     // data.waterLow      = digitalRead(WATER_LOW_PIN);      // HIGH = OK
