@@ -13,7 +13,8 @@
 #define DEFAULT_LUX_TARGET         500    // Base lux setpoint
 
 // ── Timing Defaults (all in milliseconds) ────────────────────────────────────
-#define DEFAULT_ROOF_OPEN_MS       1000UL  // Motor run time to open roof
+#define DEFAULT_ROOF_OPEN_MS       1500UL  // Motor run time to open roof (auto mode)
+#define MAINTENANCE_OPEN_PULSE_MS  1500UL  // Pulse duration for manual open button
 #define DEFAULT_ROOF_CLOSE_TIMEOUT 5000UL  // Max wait for reed contact when closing
 #define DEFAULT_IRRIGATE_MS       10000UL  // Pump run time per irrigation cycle
 #define DEFAULT_IRRIGATE_PAUSE   600000UL  // Diffusion pause between cycles

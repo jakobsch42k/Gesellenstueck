@@ -7,6 +7,7 @@
 #include "irrigation.h"
 #include "lightManagement.h"
 #include "webBackend.h"
+#include "constants.h"
 
 void SystemController::init() {
     Serial.begin(115200);
@@ -80,7 +81,14 @@ void SystemController::run() {
         roofControl_update(liveData, config, errorFlags);
         irrigation_update(liveData, config, errorFlags);
         lightManagement_update(liveData, config, errorFlags);
+    } else if (errorFlags.MAINTENANCE_MODE && liveData.roofClosed && !prevRoofClosed) {
+        roof_stop();
+        maintenanceOpenUntil = 0;
+    } else if (maintenanceOpenUntil && millis() >= maintenanceOpenUntil) {
+        roof_stop();
+        maintenanceOpenUntil = 0;
     }
+    prevRoofClosed = liveData.roofClosed;
 
     // 5. Display and web — always run so the UI stays responsive
     display_update(liveData, errorFlags);
@@ -98,8 +106,14 @@ void SystemController::handleManualCommand(String cmd, int val) {
     else if (cmd == "valve_open"  && val >= 1 && val <= 5) valve_open(val - 1);
     else if (cmd == "valve_close" && val >= 1 && val <= 5) valve_close(val - 1);
     else if (cmd == "valve_closeAll") valve_closeAll();
-    else if (cmd == "roof_open")      roof_open();
-    else if (cmd == "roof_close")     roof_close();
+    else if (cmd == "roof_open") {
+        roof_open();
+        maintenanceOpenUntil = millis() + MAINTENANCE_OPEN_PULSE_MS;
+    }
+    else if (cmd == "roof_close") {
+        if (!liveData.roofClosed) roof_close();
+        else Serial.println("[systemController] roof_close ignored — reed already closed");
+    }
     else if (cmd == "roof_stop")      roof_stop();
     else if (cmd == "led_pwm")        led_grow_setPWM(val);
     else if (cmd == "emergency_stop") {
@@ -109,6 +123,7 @@ void SystemController::handleManualCommand(String cmd, int val) {
     }
     else if (cmd == "maintenance_on") {
         errorFlags.MAINTENANCE_MODE = true;
+        roof_stop();
         Serial.println("[systemController] maintenance mode ON");
     }
     else if (cmd == "maintenance_off") {

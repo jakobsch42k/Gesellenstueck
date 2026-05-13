@@ -358,9 +358,8 @@ static void handleDiagnostics() {
         doc["commStatus"] = WiFi.SSID() + " — " + WiFi.localIP().toString();
 
     const char* roofStr[] = {"IDLE", "OPENING", "OPEN", "CLOSING", "CLOSED", "ERROR"};
-    doc["moduleStatus"] = String("Roof: ") + roofStr[(int)roofControl_getState()] +
-                          " | Irr: " + irrStr[(int)irrigation_getState()] +
-                          " | LED PWM: " + String(lightManagement_getCurrentPWM());
+    doc["roofState"] = roofStr[(int)roofControl_getState()];
+    doc["ledPWM"]    = lightManagement_getCurrentPWM();
 
     doc["voltage"]  = "N/A";
     doc["freeHeap"] = ESP.getFreeHeap();
