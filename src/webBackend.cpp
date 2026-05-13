@@ -6,10 +6,13 @@
 #include "lightManagement.h"
 #include <WiFi.h>
 #include <WebServer.h>
+#include <DNSServer.h>
 #include <LittleFS.h>
 #include <ArduinoJson.h>
 
-static WebServer server(80);
+static WebServer  server(80);
+static DNSServer  dnsServer;
+static WiFiServer httpsRedirect(443); // intercepts iOS HTTPS captive-portal probes
 
 static const LiveData* liveData = nullptr;
 static Config*         cfg      = nullptr;
@@ -434,8 +437,9 @@ static void handleAckErrors() {
 
 static void handleNotFound() {
     if (!serveFile(server.uri())) {
-        server.send(404, "application/json",
-                    "{\"error\":\"not found\",\"uri\":\"" + server.uri() + "\"}");
+        // Redirect unknown paths to the main page — triggers captive portal on all OSes
+        server.sendHeader("Location", "http://" + WiFi.softAPIP().toString() + "/");
+        server.send(302, "text/plain", "");
     }
 }
 
@@ -449,6 +453,24 @@ void webBackend_init(const LiveData& data, Config& config, ErrorFlags& err) {
     WiFi.mode(WIFI_AP);
     WiFi.softAP(WIFI_SSID, WIFI_PASS, 6);
     Serial.println("[webBackend] AP started — IP: " + WiFi.softAPIP().toString());
+
+    // Captive portal DNS: resolve every hostname to the ESP32 IP
+    dnsServer.start(53, "*", WiFi.softAPIP());
+    httpsRedirect.begin();
+
+    // OS captive-portal detection probes — all redirect so the browser popup triggers
+    auto captiveRedirect = []() {
+        server.sendHeader("Location", "http://" + WiFi.softAPIP().toString() + "/");
+        server.send(302, "text/plain", "");
+    };
+    server.on("/generate_204",        HTTP_GET, captiveRedirect); // Android
+    server.on("/204",                 HTTP_GET, captiveRedirect); // Android (alternate)
+    server.on("/hotspot-detect.html", HTTP_GET, captiveRedirect); // iOS / macOS
+    server.on("/canonical.html",      HTTP_GET, captiveRedirect); // iOS (alternate)
+    server.on("/connecttest.txt",     HTTP_GET, captiveRedirect); // Windows
+    server.on("/redirect",            HTTP_GET, captiveRedirect); // Windows
+    server.on("/ncsi.txt",            HTTP_GET, captiveRedirect); // Windows (older)
+    server.on("/success.html",        HTTP_GET, captiveRedirect); // macOS (alternate)
 
     server.on("/",            HTTP_GET, []() { serveFile("/index.html"); });
     server.on("/index.html",  HTTP_GET, []() { serveFile("/index.html"); });
@@ -486,5 +508,16 @@ void webBackend_registerCallbacks(
 }
 
 void webBackend_handle() {
+    dnsServer.processNextRequest();
     server.handleClient();
+
+    // Send plaintext HTTP redirect to any iOS HTTPS probe on port 443
+    WiFiClient client = httpsRedirect.accept();
+    if (client) {
+        String redirect = "HTTP/1.1 302 Found\r\nLocation: http://" +
+                          WiFi.softAPIP().toString() + "/\r\n"
+                          "Content-Length: 0\r\nConnection: close\r\n\r\n";
+        client.print(redirect);
+        client.stop();
+    }
 }
