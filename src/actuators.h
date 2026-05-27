@@ -6,7 +6,7 @@ void actuators_init();
 
 // Roof motor (TB6612FNG channel A)
 void roof_open(int pwm = 120);
-void roof_close(int pwm = 80);
+void roof_close(int pwm = 70);
 void roof_stop();
 
 // Pump (TB6612FNG channel B)

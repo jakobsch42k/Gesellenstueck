@@ -61,15 +61,17 @@ function showSection(id) {
           document.getElementById('diag_light').firstChild.textContent       = data.light;
           document.getElementById('diag_water_low').innerText      = data.waterLow;
           document.getElementById('diag_water_critical').innerText = data.waterCritical;
+          document.getElementById('diag_roof_contact').innerText   = data.roofContact;
           
           // Update system states
-          document.getElementById('diag_roof_contact').innerText = data.roofContact;
           document.getElementById('diag_pump_status').innerText = data.pumpStatus;
           document.getElementById('diag_error_flags').innerText = data.errorFlags;
-          
+          document.getElementById('diag_roof_state').innerText = data.roofState;
+          document.getElementById('roof_viz').dataset.state = data.roofState;
+          currentRoofState = data.roofState;
+
           // Update system information
           document.getElementById('diag_comm_status').innerText = data.commStatus;
-          document.getElementById('diag_roof_state').innerText = data.roofState;
           document.getElementById('diag_led_pwm').firstChild.textContent = data.ledPWM;
           document.getElementById('diag_free_heap').firstChild.textContent = (data.freeHeap / 1024).toFixed(1);
         })
@@ -403,8 +405,15 @@ function controlValve(valve, state) {
   sendManualCommand(command, `valve${valve}`, valve);
 }
 
+// Latest roof state reported by /diagnostics (updated every poll)
+let currentRoofState = null;
+
 // Function to control roof motor (open/close/stop)
 function controlRoofMotor(direction) {
+  if (direction === 'open' && (currentRoofState === 'OPEN' || currentRoofState === 'OPENING')) {
+    alert('Roof already open');
+    return;
+  }
   sendManualCommand(`roof_${direction}`, 'roof');
 }
 

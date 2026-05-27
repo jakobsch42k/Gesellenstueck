@@ -83,9 +83,11 @@ void SystemController::run() {
         lightManagement_update(liveData, config, errorFlags);
     } else if (errorFlags.MAINTENANCE_MODE && liveData.roofClosed && !prevRoofClosed) {
         roof_stop();
+        roofControl_setState(ROOF_CLOSED);
         maintenanceOpenUntil = 0;
     } else if (maintenanceOpenUntil && millis() >= maintenanceOpenUntil) {
         roof_stop();
+        roofControl_setState(ROOF_OPEN);
         maintenanceOpenUntil = 0;
     }
     prevRoofClosed = liveData.roofClosed;
@@ -108,13 +110,19 @@ void SystemController::handleManualCommand(String cmd, int val) {
     else if (cmd == "valve_closeAll") valve_closeAll();
     else if (cmd == "roof_open") {
         roof_open();
+        roofControl_setState(ROOF_OPENING);
         maintenanceOpenUntil = millis() + MAINTENANCE_OPEN_PULSE_MS;
     }
     else if (cmd == "roof_close") {
-        if (!liveData.roofClosed) roof_close();
-        else Serial.println("[systemController] roof_close ignored — reed already closed");
+        if (!liveData.roofClosed) {
+            roof_close();
+            roofControl_setState(ROOF_CLOSING);
+        } else Serial.println("[systemController] roof_close ignored — reed already closed");
     }
-    else if (cmd == "roof_stop")      roof_stop();
+    else if (cmd == "roof_stop") {
+        roof_stop();
+        roofControl_setState(ROOF_IDLE);
+    }
     else if (cmd == "led_pwm")        led_grow_setPWM(val);
     else if (cmd == "emergency_stop") {
         errorFlags.EMERGENCY_STOP    = true;

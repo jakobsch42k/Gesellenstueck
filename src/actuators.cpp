@@ -75,8 +75,8 @@ void roof_stop() {
 
 void pump_on(int pwm) {
     digitalWrite(MOTOR_STBY, HIGH);
-    digitalWrite(MOTOR_B_IN1, HIGH);
-    digitalWrite(MOTOR_B_IN2, LOW);
+    digitalWrite(MOTOR_B_IN1, LOW);
+    digitalWrite(MOTOR_B_IN2, HIGH);
     analogWrite(MOTOR_B_PWM, pwm);
     Serial.println("[actuators] pump ON");
 }

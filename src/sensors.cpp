@@ -66,8 +66,8 @@ void sensors_init(LiveData& data, ErrorFlags& err, const Config& cfg) {
     // }
 
     // Digital inputs — external pull-down resistors on PCB, no internal pull needed
-    // pinMode(WATER_LOW_PIN,      INPUT);
-    // pinMode(WATER_CRITICAL_PIN, INPUT);
+    pinMode(WATER_LOW_PIN,      INPUT);
+    pinMode(WATER_CRITICAL_PIN, INPUT);
     pinMode(REED_PIN, INPUT);
 
     // Safe defaults so no error flags or shutdowns trigger
@@ -153,9 +153,9 @@ void sensors_update(LiveData& data, ErrorFlags& err, const Config& cfg) {
         }
     }
 
-    // // ── Digital inputs ───────────────────────────────────────────────────────
-    // data.waterLow      = digitalRead(WATER_LOW_PIN);      // HIGH = OK
-    // data.waterCritical = digitalRead(WATER_CRITICAL_PIN); // HIGH = OK
+    // ── Digital inputs ───────────────────────────────────────────────────────
+    data.waterLow      = digitalRead(WATER_LOW_PIN);      // HIGH = OK
+    data.waterCritical = digitalRead(WATER_CRITICAL_PIN); // HIGH = OK
     data.roofClosed = digitalRead(REED_PIN);                 // HIGH = closed
 }
 

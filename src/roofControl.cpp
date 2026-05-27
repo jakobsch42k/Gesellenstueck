@@ -83,6 +83,10 @@ RoofState roofControl_getState() {
     return state;
 }
 
+void roofControl_setState(RoofState s) {
+    enterState(s);
+}
+
 void roofControl_ackError(ErrorFlags& err) {
     if (state == ROOF_ERROR) {
         err.ERR_ROOF_TIMEOUT = false;
