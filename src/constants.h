@@ -10,7 +10,7 @@
 #define DEFAULT_MOISTURE            40    // Target soil moisture per bed (%)
 #define DEFAULT_TEMP_TARGET         25.0f // Target temperature (°C)
 #define DEFAULT_TEMP_HYSTERESIS      1.0f // Hysteresis band (°C)
-#define DEFAULT_LUX_TARGET         500    // Base lux setpoint
+#define DEFAULT_LUX_TARGET         180    // Lux measured at 100% LED power (calibration)
 
 // ── Timing Defaults (all in milliseconds) ────────────────────────────────────
 #define DEFAULT_ROOF_OPEN_MS       1500UL  // Motor run time to open roof (auto mode)
@@ -27,8 +27,9 @@
 #define SOIL_ADC_SAMPLES             10   // Averaged readings per sensor per cycle
 
 // ── Light Management ─────────────────────────────────────────────────────────
-#define LUX_SMOOTH_WINDOW_S          60   // Smoothing window for lux average (seconds)
-#define LUX_HYSTERESIS               20   // Dead-band for P-controller (lux)
+#define LUX_SAMPLE_INTERVAL_MS      120   // BH1750 high-res integration time
+#define LUX_EMA_ALPHA               0.15f // EMA weight per sample (≈6-sample window ≈ 700 ms)
+#define LUX_HYSTERESIS                5   // Dead-band for P-controller (lux)
 
 // ── Display ──────────────────────────────────────────────────────────────────
 #define DISPLAY_UPDATE_MS          2000UL // LCD refresh interval

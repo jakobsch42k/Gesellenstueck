@@ -88,7 +88,12 @@ function loadConfig() {
         document.getElementById(`beet${i}TargetVal`).innerText = val;
       }
       // luxTarget in new backend, lux in old
-      document.getElementById('lightTarget').value = cfg.luxTarget || cfg.lux || 500;
+      document.getElementById('lightTarget').value = cfg.luxTarget || cfg.lux || 180;
+
+      // temperature target
+      if (cfg.tempTarget !== undefined) {
+        document.getElementById('tempTarget').value = cfg.tempTarget;
+      }
 
       // populate hourly light profile
       if (cfg.lightProfile && cfg.lightProfile.length === 24) {
@@ -114,7 +119,8 @@ function loadConfig() {
         cfg.moisture.push(parseInt(document.getElementById(`beet${i}Target`).value) || 0);
       }
 
-      cfg.luxTarget = parseInt(document.getElementById('lightTarget').value) || 500;
+      cfg.luxTarget  = parseInt(document.getElementById('lightTarget').value)   || 180;
+      cfg.tempTarget = parseFloat(document.getElementById('tempTarget').value)  || 25;
 
       // collect hourly light profile
       cfg.lightProfile = [];

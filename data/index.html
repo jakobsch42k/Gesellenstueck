@@ -148,14 +148,22 @@
     </div>
 
     <div class="card">
+      <h4>Climate Control</h4>
+      <label>Target temperature (°C):</label>
+      <input type="number" id="tempTarget" min="0" max="60" step="0.5">
+      <p class="lp-hint">Roof opens when measured temperature exceeds the target by the hysteresis band, closes when it falls below by the same band.</p>
+    </div>
+
+    <div class="card">
       <h4>Light Control</h4>
-      <label>Base lux target:</label>
+      <label>Max lux at 100% LED power (calibration):</label>
       <input type="number" id="lightTarget" min="0" max="10000">
+      <p class="lp-hint">Measure with a fully-lit empty greenhouse, then enter the lux value the BH1750 reports. The hourly profile below is interpreted as a percentage of this maximum.</p>
     </div>
 
     <div class="card">
       <h4>Hourly Light Profile</h4>
-      <p class="lp-hint">Brightness percentage per hour (0 = LED off, 100 = full). Controller uses base lux target scaled by this value.</p>
+      <p class="lp-hint">Target brightness per hour as % of max lux (0 = LED off, 100 = full). Closed-loop controller drives the LED to hold the resulting lux setpoint.</p>
       <div id="lightProfileGrid" class="light-profile-grid"></div>
     </div>
 
