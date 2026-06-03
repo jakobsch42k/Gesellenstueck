@@ -100,6 +100,18 @@ Web UI assets (`data/`) are served from LittleFS. `script.js` polls `/data` on a
 
 Config exposes timing overrides: `roofOpenDuration_ms`, `roofCloseTimeout_ms`, `irrigationDuration_ms`, `irrigationPause_ms`.
 
+## Embedded/Control Logic
+
+- For sensor-driven control loops (light, temperature, roof), always validate against stale data and verify regulation behavior (no oscillation, responds to setpoint changes) before considering the task done.
+
+## Frontend/Backend Contracts
+
+- When displaying sensor data on the diagnostics page, confirm that backend JSON keys exactly match the keys the JavaScript reads before finishing.
+
+## UI Logic
+
+- Don't add redundant state checks (e.g., maintenance-mode guards) for controls that only render in that state.
+
 ## Git Workflow
 
 After every code change, commit and push to GitHub:
@@ -130,6 +142,7 @@ Rules:
 - Use imperative mood ("add", "fix", "remove" — not "added", "fixes")
 - Body explains *why*, not *what* (the diff shows what)
 - Never bundle unrelated changes in one commit
+- After completing changes, propose a commit message and confirm gitignore covers local-only/settings files before committing and pushing.
 
 ## Key Constraints
 
