@@ -3,5 +3,18 @@
     "allow": [
       "Bash(pio device list *)"
     ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "clang-format -i $CLAUDE_FILE_PATH 2>/dev/null; true"
+          }
+        ]
+      }
+    ]
   }
 }
