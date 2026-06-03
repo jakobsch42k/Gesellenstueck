@@ -102,17 +102,21 @@ Config exposes timing overrides: `roofOpenDuration_ms`, `roofCloseTimeout_ms`, `
 
 ## Embedded/Control Logic
 
+- Before modifying any FSM or controller, explicitly list the failure modes the new logic must handle (stale data, oscillation, no-regulation) and how it handles each. Walk through a concrete sensor sequence on paper before touching hardware.
 - For sensor-driven control loops (light, temperature, roof), always validate against stale data and verify regulation behavior (no oscillation, responds to setpoint changes) before considering the task done.
+- When adding a new sensor, all three must land in the same commit: (a) I2C driver with fault tolerance, (b) diagnostics UI widget, (c) JSON key verified against both backend serializer and JS reader. Partial delivery silently breaks the pipeline.
 
 ## Frontend/Backend Contracts
 
-- When displaying sensor data on the diagnostics page, confirm that backend JSON keys exactly match the keys the JavaScript reads before finishing.
+- Before wiring up any data display: list every key the backend emits for that endpoint and every key the JS reads, side-by-side. Diff explicitly. Never assume they match — the mismatch won't surface until runtime.
 
 ## UI Logic
 
 - Don't add redundant state checks (e.g., maintenance-mode guards) for controls that only render in that state.
 
 ## Git Workflow
+
+Use `/commit` to automate the gitignore check + conventional message format.
 
 After every code change, commit and push to GitHub:
 
