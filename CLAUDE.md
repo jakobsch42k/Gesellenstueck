@@ -157,6 +157,11 @@ Rules:
 - **Maintenance mode:** Enabled by default on boot. Regulation (roof/irrigation/light) is fully suppressed until the user disables it via the web UI. Manual control commands still work in maintenance mode.
 - **Water level:** `ERR_WATER_CRITICAL` (lower switch) locks pump and all valves immediately. Low level (upper switch) logs a warning only and allows continued irrigation.
 
+## Token Efficiency (Project-Specific)
+
+- **`shared.h` is the data model source of truth.** Grep it for struct fields (LiveData, Config, ErrorFlags) instead of reading multiple module files to understand the data model.
+- **`/data` endpoint keys are listed in this file** (see Web Backend section). Don't read `webBackend.cpp` to rediscover them — only open that file when actually editing the endpoint.
+
 ## Known Issues & Failed Attempts
 
 _Entries added here as problems are encountered during development._
