@@ -3,15 +3,26 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Greenhouse Control</title>
+  <title>Hochbeet Control</title>
   <link rel="stylesheet" href="style.css">
   <script src="script.js" defer></script>
 </head>
 <body>
 
   <header>
-    <h1>Greenhouse Control</h1>
-    <p>ESP32 Automation System</p>
+    <div class="hdr-left">
+      <h1>Hochbeet</h1>
+      <span class="hdr-id">ESP32-S3 · NODE-01</span>
+    </div>
+    <div class="hdr-right">
+      <div class="led-cluster">
+        <div class="led" id="led-wifi"  title="WiFi"></div>
+        <div class="led" id="led-water" title="Water"></div>
+        <div class="led" id="led-fault" title="Fault"></div>
+      </div>
+      <span class="hdr-mode" id="hdr-mode">--</span>
+      <span class="hdr-time" id="hdr-time">--:--:--</span>
+    </div>
   </header>
 
   <nav>
@@ -24,57 +35,91 @@
 
   <!-- DASHBOARD -->
   <section id="dashboard" class="active">
-    <button class="button button-emergency" onclick="emergencyStop()">EMERGENCY STOP</button>
-
-    <h2>Live Data</h2>
 
     <div class="sensor-grid">
       <div class="card">
-        <h3>Temperature</h3>
-        <strong id="temp">--<span class="unit">°C</span></strong>
+        <div class="card-label">Temperature</div>
+        <div class="card-value" id="temp">--<span class="unit">°C</span></div>
       </div>
       <div class="card">
-        <h3>Humidity</h3>
-        <strong id="humidity">--<span class="unit">%</span></strong>
+        <div class="card-label">Humidity</div>
+        <div class="card-value" id="humidity">--<span class="unit">%</span></div>
       </div>
       <div class="card">
-        <h3>Light</h3>
-        <strong id="light">--<span class="unit">lx</span></strong>
+        <div class="card-label">Light</div>
+        <div class="card-value" id="light">--<span class="unit">lx</span></div>
       </div>
       <div class="card">
-        <h3>Pump</h3>
-        <strong id="pumpStatus">--</strong>
+        <div class="card-label">Pump</div>
+        <div class="status-pill">
+          <div class="dot" id="pump-dot"></div>
+          <span id="pumpStatus">--</span>
+        </div>
       </div>
     </div>
 
-    <h3>Soil Moisture</h3>
-    <div class="card">
-      <div class="soil-row">
-        <span class="soil-label">BED 01</span>
-        <div class="soil-bar-track"><div class="soil-bar-fill" id="bed1_visual"></div></div>
-        <span class="soil-value"><span id="bed1_moisture">--</span>%</span>
+    <div class="flags">
+      <div class="flag" id="flag-roof">
+        <div class="flag-dot"></div>
+        <span class="flag-name">Roof</span>
       </div>
-      <div class="soil-row">
-        <span class="soil-label">BED 02</span>
-        <div class="soil-bar-track"><div class="soil-bar-fill" id="bed2_visual"></div></div>
-        <span class="soil-value"><span id="bed2_moisture">--</span>%</span>
+      <div class="flag" id="flag-pump">
+        <div class="flag-dot"></div>
+        <span class="flag-name">Pump</span>
       </div>
-      <div class="soil-row">
-        <span class="soil-label">BED 03</span>
-        <div class="soil-bar-track"><div class="soil-bar-fill" id="bed3_visual"></div></div>
-        <span class="soil-value"><span id="bed3_moisture">--</span>%</span>
+      <div class="flag" id="flag-light">
+        <div class="flag-dot"></div>
+        <span class="flag-name">Light</span>
       </div>
-      <div class="soil-row">
-        <span class="soil-label">BED 04</span>
-        <div class="soil-bar-track"><div class="soil-bar-fill" id="bed4_visual"></div></div>
-        <span class="soil-value"><span id="bed4_moisture">--</span>%</span>
+      <div class="flag" id="flag-water">
+        <div class="flag-dot"></div>
+        <span class="flag-name">Water</span>
       </div>
-      <div class="soil-row">
-        <span class="soil-label">BED 05</span>
-        <div class="soil-bar-track"><div class="soil-bar-fill" id="bed5_visual"></div></div>
-        <span class="soil-value"><span id="bed5_moisture">--</span>%</span>
+      <div class="flag" id="flag-estop">
+        <div class="flag-dot"></div>
+        <span class="flag-name">E-Stop</span>
+      </div>
+      <div class="flag" id="flag-auto">
+        <div class="flag-dot"></div>
+        <span class="flag-name">Auto</span>
       </div>
     </div>
+
+    <div class="section-label">Soil Moisture</div>
+
+    <div class="soil-block">
+      <div class="soil-row">
+        <span class="soil-label">BED-01</span>
+        <div class="soil-bar-track"><div class="soil-bar-fill" id="bed1_visual"></div></div>
+        <span class="soil-value"><span id="bed1_moisture">--</span>%</span>
+        <div class="soil-ind" id="soil-ind-1"></div>
+      </div>
+      <div class="soil-row">
+        <span class="soil-label">BED-02</span>
+        <div class="soil-bar-track"><div class="soil-bar-fill" id="bed2_visual"></div></div>
+        <span class="soil-value"><span id="bed2_moisture">--</span>%</span>
+        <div class="soil-ind" id="soil-ind-2"></div>
+      </div>
+      <div class="soil-row">
+        <span class="soil-label">BED-03</span>
+        <div class="soil-bar-track"><div class="soil-bar-fill" id="bed3_visual"></div></div>
+        <span class="soil-value"><span id="bed3_moisture">--</span>%</span>
+        <div class="soil-ind" id="soil-ind-3"></div>
+      </div>
+      <div class="soil-row">
+        <span class="soil-label">BED-04</span>
+        <div class="soil-bar-track"><div class="soil-bar-fill" id="bed4_visual"></div></div>
+        <span class="soil-value"><span id="bed4_moisture">--</span>%</span>
+        <div class="soil-ind" id="soil-ind-4"></div>
+      </div>
+      <div class="soil-row">
+        <span class="soil-label">BED-05</span>
+        <div class="soil-bar-track"><div class="soil-bar-fill" id="bed5_visual"></div></div>
+        <span class="soil-value"><span id="bed5_moisture">--</span>%</span>
+        <div class="soil-ind" id="soil-ind-5"></div>
+      </div>
+    </div>
+
   </section>
 
   <!-- BED SETTINGS -->
@@ -187,14 +232,12 @@
     </div>
 
     <h3>Time Synchronisation</h3>
-    <div class="sensor-grid">
-      <div class="card" style="max-width:500px">
-        <h4>Set System Time</h4>
-        <p>Current time: <strong id="systemTime">--:--</strong></p>
-        <input type="datetime-local" id="timeInput">
-        <button class="button" onclick="setSysTime()">Set Time</button>
-        <p id="timeStatus"></p>
-      </div>
+    <div class="card">
+      <h4>Set System Time</h4>
+      <p>Current time: <strong id="systemTime">--:--</strong></p>
+      <input type="datetime-local" id="timeInput">
+      <button class="button" onclick="setSysTime()">Set Time</button>
+      <p id="timeStatus"></p>
     </div>
   </section>
 
@@ -212,9 +255,9 @@
       <div class="card"><h4>Temperature</h4><strong id="diag_temperature">--<span class="unit">°C</span></strong></div>
       <div class="card"><h4>Humidity</h4><strong id="diag_humidity">--<span class="unit">%</span></strong></div>
       <div class="card"><h4>Light</h4><strong id="diag_light">--<span class="unit">lx</span></strong></div>
-      <div class="card"><h4>Water Low Sensor</h4><strong id="diag_water_low">--</strong></div>
-      <div class="card"><h4>Water Critical Sensor</h4><strong id="diag_water_critical">--</strong></div>
-      <div class="card"><h4>Roof Reed Contact</h4><strong id="diag_roof_contact">--</strong></div>
+      <div class="card"><h4>Water Low</h4><strong id="diag_water_low">--</strong></div>
+      <div class="card"><h4>Water Critical</h4><strong id="diag_water_critical">--</strong></div>
+      <div class="card"><h4>Roof Reed</h4><strong id="diag_roof_contact">--</strong></div>
     </div>
 
     <h3>System States</h3>
@@ -234,7 +277,7 @@
 
     <h3>System Information</h3>
     <div class="sensor-grid">
-      <div class="card"><h4>Network (WiFi / IP)</h4><p id="diag_comm_status">--</p></div>
+      <div class="card"><h4>Network</h4><p id="diag_comm_status">--</p></div>
       <div class="card"><h4>Free Memory</h4><strong id="diag_free_heap">--<span class="unit">KB</span></strong></div>
     </div>
   </section>
@@ -255,8 +298,8 @@
       <div class="card emergency-card" style="grid-column:1/-1">
         <h4>Immediate Shutdown</h4>
         <p>Deactivates all actuators immediately and sets the emergency stop flag.</p>
-        <button class="button button-emergency" onclick="emergencyStop()">EMERGENCY STOP</button>
-        <p>Last triggered: <span id="emergency_last">Never</span></p>
+        <button class="button button-emergency" onclick="emergencyStop()">Emergency Stop</button>
+        <p style="margin-top:0.75rem">Last triggered: <span id="emergency_last">Never</span></p>
         <button class="button" style="margin-top:1rem" onclick="ackErrors()">Reset Emergency Stop</button>
       </div>
     </div>
@@ -268,8 +311,8 @@
       <div class="card">
         <h4>Water Pump</h4>
         <div class="button-row">
-          <button class="button" onclick="controlPump(true)">Turn On</button>
-          <button class="button button-danger" onclick="controlPump(false)">Turn Off</button>
+          <button class="button" onclick="controlPump(true)">On</button>
+          <button class="button button-danger" onclick="controlPump(false)">Off</button>
         </div>
         <p>Status: <span id="manual_pump_status">--</span></p>
       </div>
@@ -343,7 +386,7 @@
       <div class="card">
         <h4>Brightness (PWM)</h4>
         <input type="range" min="0" max="255" id="ledPWM" class="slider" value="0">
-        <p>PWM value: <span id="led_pwm_value">0</span> / 255</p>
+        <p>PWM: <span id="led_pwm_value">0</span> / 255</p>
         <button class="button" onclick="setLEDBrightness()">Apply</button>
         <p>Status: <span id="manual_led_status">--</span></p>
       </div>
@@ -353,7 +396,7 @@
 
   </section>
 
-  <footer>2026 — ESP32 Greenhouse Control</footer>
+  <footer>2026 · ESP32-S3 Greenhouse Control</footer>
 
 </body>
 </html>

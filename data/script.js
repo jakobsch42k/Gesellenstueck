@@ -10,6 +10,20 @@ function showSection(id) {
   document.getElementById(id).classList.add('active');
 }
 
+// Updates a flag row item: state is 'on' | 'warn' | 'err' | 'off'
+function setFlag(id, state) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.querySelector('.flag-dot').className  = 'flag-dot'  + (state !== 'off' ? ' ' + state : '');
+  el.querySelector('.flag-name').className = 'flag-name' + (state !== 'off' ? ' ' + state : '');
+}
+
+// Header clock — updates every second from browser time
+setInterval(() => {
+  const el = document.getElementById('hdr-time');
+  if (el) el.textContent = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}, 1000);
+
     // --- Fetch live data regularly ---
     // Set up periodic fetching of sensor data from the ESP32 server
     setInterval(() => {
@@ -31,8 +45,28 @@ function showSection(id) {
               const fill = document.getElementById(`bed${i}_visual`);
               fill.style.width = moisture + '%';
               fill.classList.toggle('low', moisture < 30);
+              const ind = document.getElementById(`soil-ind-${i}`);
+              if (ind) ind.className = 'soil-ind' + (moisture < 30 ? ' low' : '');
             }
           }
+
+          // Header LEDs
+          const ledWifi = document.getElementById('led-wifi');
+          if (ledWifi) ledWifi.className = 'led on';
+          const ledWater = document.getElementById('led-water');
+          if (ledWater) ledWater.className = data.waterCritical ? 'led err' : data.waterLow ? 'led warn' : 'led on';
+
+          // Header mode badge
+          const elMode = document.getElementById('hdr-mode');
+          if (elMode) elMode.textContent = data.MAINTENANCE_MODE ? 'MAINT' : 'AUTO';
+
+          // Flag row
+          setFlag('flag-water', data.waterCritical ? 'err' : data.waterLow ? 'warn' : 'on');
+          setFlag('flag-auto',  data.MAINTENANCE_MODE ? 'off' : 'on');
+
+          // Pump status dot
+          const dot = document.getElementById('pump-dot');
+          if (dot) dot.className = 'dot' + (data.pumpStatus && !data.pumpStatus.toLowerCase().includes('idle') ? ' on' : '');
         })
         .catch(err => console.error('Error fetching data:', err));
 
@@ -74,6 +108,21 @@ function showSection(id) {
           document.getElementById('diag_comm_status').innerText = data.commStatus;
           document.getElementById('diag_led_pwm').firstChild.textContent = data.ledPWM;
           document.getElementById('diag_free_heap').firstChild.textContent = (data.freeHeap / 1024).toFixed(1);
+
+          // Header fault LED
+          const ledFault = document.getElementById('led-fault');
+          if (ledFault) {
+            const hasErr = data.errorFlags && data.errorFlags.trim().length > 0 && data.errorFlags.trim().toLowerCase() !== 'none';
+            ledFault.className = hasErr ? 'led err' : 'led';
+          }
+
+          // Flag row
+          const rState = (data.roofState || '').toUpperCase();
+          setFlag('flag-roof',  rState === 'ERROR' ? 'err' : 'on');
+          setFlag('flag-pump',  data.pumpStatus && !data.pumpStatus.toLowerCase().includes('idle') ? 'on' : 'off');
+          setFlag('flag-light', (data.ledPWM || 0) > 0 ? 'on' : 'off');
+          const hasEstop = data.errorFlags && data.errorFlags.toUpperCase().includes('EMERGENCY');
+          setFlag('flag-estop', hasEstop ? 'err' : 'off');
         })
         .catch(err => console.error('Error fetching diagnostics:', err));
     }, 2000);  // Update every 2 seconds// --- Konfiguration laden ---
