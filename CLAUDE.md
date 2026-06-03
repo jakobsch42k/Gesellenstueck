@@ -139,3 +139,7 @@ Rules:
 - **Non-blocking loop:** All modules must return quickly. Never use `delay()` in module code — use timestamp-based state transitions (`millis()`).
 - **Maintenance mode:** Enabled by default on boot. Regulation (roof/irrigation/light) is fully suppressed until the user disables it via the web UI. Manual control commands still work in maintenance mode.
 - **Water level:** `ERR_WATER_CRITICAL` (lower switch) locks pump and all valves immediately. Low level (upper switch) logs a warning only and allows continued irrigation.
+
+## Known Issues & Failed Attempts
+
+_Entries added here as problems are encountered during development._
