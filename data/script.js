@@ -1,579 +1,586 @@
-// Tab navigation function - switches between different sections of the interface
-function showSection(id) {
-  // Remove 'active' class from all navigation buttons
-  document.querySelectorAll('nav button').forEach(btn => btn.classList.remove('active'));
-  // Hide all sections by removing 'active' class
-  document.querySelectorAll('section').forEach(sec => sec.classList.remove('active'));
-  // Add 'active' class to the clicked navigation button
-  document.querySelector(`button[onclick="showSection('${id}')"]`).classList.add('active');
-  // Show the selected section by adding 'active' class
-  document.getElementById(id).classList.add('active');
+/* ============================================================
+   HOCHBEET — device web UI logic  (vanilla, offline)
+   Polls the ESP32 firmware and renders the warm dashboard.
+   Data contract:
+     GET  /data.json     tempC humPerc lux pumpStatus MAINTENANCE_MODE
+                         soilPerc[5] waterLow waterCritical
+     GET  /systemStatus  wifi uptime
+     GET  /diagnostics   soilRaw[5] temperature humidity light roofState
+                         roofContact pumpStatus errorFlags commStatus ledPWM freeHeap
+                         waterLow waterCritical
+     GET  /loadConfig    moisture[5] luxTarget tempTarget lightProfile[24]
+     POST /saveConfig    {moisture[5], luxTarget, tempTarget, lightProfile[24]}
+     GET  /getPlants  ·  POST /addPlant  ·  DELETE /deletePlant
+     POST /manual {command,value?}  ·  POST /ackErrors  ·  POST /setTime {timestamp}
+   ============================================================ */
+'use strict';
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+
+/* ---- toast ------------------------------------------------- */
+let toastT;
+function toast(msg, bad) {
+  const el = $('#toast');
+  el.textContent = msg;
+  el.style.background = bad ? 'var(--rose)' : 'var(--ink)';
+  el.classList.add('show');
+  clearTimeout(toastT);
+  toastT = setTimeout(() => el.classList.remove('show'), 2200);
 }
 
-// Updates a flag row item: state is 'on' | 'warn' | 'err' | 'off'
-function setFlag(id, state) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.querySelector('.flag-dot').className  = 'flag-dot'  + (state !== 'off' ? ' ' + state : '');
-  el.querySelector('.flag-name').className = 'flag-name' + (state !== 'off' ? ' ' + state : '');
-}
-
-// Header clock — updates every second from browser time
-setInterval(() => {
-  const el = document.getElementById('hdr-time');
-  if (el) el.textContent = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-}, 1000);
-
-    // --- Fetch live data regularly ---
-    // Set up periodic fetching of sensor data from the ESP32 server
-    setInterval(() => {
-      // Fetch sensor data from /data.json endpoint
-      fetch('/data.json')
-        .then(r => r.json())  // Parse JSON response
-        .then(data => {
-          // Update DOM elements with current sensor readings
-          document.getElementById('temp').firstChild.textContent     = data.tempC;
-          document.getElementById('humidity').firstChild.textContent = data.humPerc;
-          document.getElementById('light').firstChild.textContent    = data.lux;
-          document.getElementById('pumpStatus').innerText            = data.pumpStatus;
-          updateMaintenanceUI(!!data.MAINTENANCE_MODE);
-
-          if (data.soilPerc) {
-            for (let i = 1; i <= 5; i++) {
-              const moisture = data.soilPerc[i - 1];
-              document.getElementById(`bed${i}_moisture`).innerText = moisture;
-              const fill = document.getElementById(`bed${i}_visual`);
-              fill.style.width = moisture + '%';
-              fill.classList.toggle('low', moisture < 30);
-              const ind = document.getElementById(`soil-ind-${i}`);
-              if (ind) ind.className = 'soil-ind' + (moisture < 30 ? ' low' : '');
-            }
-          }
-
-          // Header LEDs
-          const ledWifi = document.getElementById('led-wifi');
-          if (ledWifi) ledWifi.className = 'led on';
-          const ledWater = document.getElementById('led-water');
-          if (ledWater) ledWater.className = data.waterCritical ? 'led err' : data.waterLow ? 'led warn' : 'led on';
-
-          // Header mode badge
-          const elMode = document.getElementById('hdr-mode');
-          if (elMode) elMode.textContent = data.MAINTENANCE_MODE ? 'MAINT' : 'AUTO';
-
-          // Flag row
-          setFlag('flag-water', data.waterCritical ? 'err' : data.waterLow ? 'warn' : 'on');
-          setFlag('flag-auto',  data.MAINTENANCE_MODE ? 'off' : 'on');
-
-          // Pump status dot
-          const dot = document.getElementById('pump-dot');
-          if (dot) dot.className = 'dot' + (data.pumpStatus && !data.pumpStatus.toLowerCase().includes('idle') ? ' on' : '');
-        })
-        .catch(err => console.error('Error fetching data:', err));
-
-      // Fetch system status data from /systemStatus endpoint
-      fetch('/systemStatus')
-        .then(r => r.json())  // Parse JSON response
-        .then(data => {
-          // Update DOM elements with system status information
-          document.getElementById('wifiStatus').innerText = data.wifi;           // WiFi connection status
-          document.getElementById('uptime').innerText = data.uptime;             // Server uptime
-        })
-        .catch(err => console.error('Error fetching system status:', err));
-
-      // Fetch diagnostics data from /diagnostics endpoint
-      fetch('/diagnostics')
-        .then(r => r.json())  // Parse JSON response
-        .then(data => {
-          // Update sensor raw values
-          document.getElementById('diag_moisture1').innerText = data.soilRaw[0];
-          document.getElementById('diag_moisture2').innerText = data.soilRaw[1];
-          document.getElementById('diag_moisture3').innerText = data.soilRaw[2];
-          document.getElementById('diag_moisture4').innerText = data.soilRaw[3];
-          document.getElementById('diag_moisture5').innerText = data.soilRaw[4];
-          document.getElementById('diag_temperature').firstChild.textContent = data.temperature;
-          document.getElementById('diag_humidity').firstChild.textContent    = data.humidity;
-          document.getElementById('diag_light').firstChild.textContent       = data.light;
-          document.getElementById('diag_water_low').innerText      = data.waterLow;
-          document.getElementById('diag_water_critical').innerText = data.waterCritical;
-          document.getElementById('diag_roof_contact').innerText   = data.roofContact;
-          
-          // Update system states
-          document.getElementById('diag_pump_status').innerText = data.pumpStatus;
-          document.getElementById('diag_error_flags').innerText = data.errorFlags;
-          document.getElementById('diag_roof_state').innerText = data.roofState;
-          document.getElementById('roof_viz').dataset.state = data.roofState;
-          currentRoofState = data.roofState;
-
-          // Update system information
-          document.getElementById('diag_comm_status').innerText = data.commStatus;
-          document.getElementById('diag_led_pwm').firstChild.textContent = data.ledPWM;
-          document.getElementById('diag_free_heap').firstChild.textContent = (data.freeHeap / 1024).toFixed(1);
-
-          // Header fault LED
-          const ledFault = document.getElementById('led-fault');
-          if (ledFault) {
-            const hasErr = data.errorFlags && data.errorFlags.trim().length > 0 && data.errorFlags.trim().toLowerCase() !== 'none';
-            ledFault.className = hasErr ? 'led err' : 'led';
-          }
-
-          // Flag row
-          const rState = (data.roofState || '').toUpperCase();
-          setFlag('flag-roof',  rState === 'ERROR' ? 'err' : 'on');
-          setFlag('flag-pump',  data.pumpStatus && !data.pumpStatus.toLowerCase().includes('idle') ? 'on' : 'off');
-          setFlag('flag-light', (data.ledPWM || 0) > 0 ? 'on' : 'off');
-          const hasEstop = data.errorFlags && data.errorFlags.toUpperCase().includes('EMERGENCY');
-          setFlag('flag-estop', hasEstop ? 'err' : 'off');
-        })
-        .catch(err => console.error('Error fetching diagnostics:', err));
-    }, 2000);  // Update every 2 seconds// --- Konfiguration laden ---
-function loadConfig() {
-  fetch('/loadConfig')
-    .then(r => r.json())
-    .then(cfg => {
-      // moisture is an array in the new backend format
-      for (let i = 1; i <= 5; i++) {
-        const val = cfg.moisture ? cfg.moisture[i - 1] : cfg[`moisture${i}`];
-        document.getElementById(`beet${i}Target`).value = val;
-        document.getElementById(`beet${i}TargetVal`).innerText = val;
-      }
-      // luxTarget in new backend, lux in old
-      document.getElementById('lightTarget').value = cfg.luxTarget || cfg.lux || 180;
-
-      // temperature target
-      if (cfg.tempTarget !== undefined) {
-        document.getElementById('tempTarget').value = cfg.tempTarget;
-      }
-
-      // populate hourly light profile
-      if (cfg.lightProfile && cfg.lightProfile.length === 24) {
-        for (let h = 0; h < 24; h++) {
-          const input = document.getElementById(`lightProfile_${h}`);
-          const bar   = document.getElementById(`lightProfileBar_${h}`);
-          if (input) input.value = cfg.lightProfile[h];
-          if (bar)   bar.style.height = cfg.lightProfile[h] + '%';
-        }
-      }
-    })
-    .then(() =>console.log('Configuration loaded'))
-    .catch(err => console.error('Error loading config:', err));
-}
-
-    // --- Konfiguration speichern ---
-    function saveConfig() {
-      const cfg = {};
-
-      // moisture as array (new backend format)
-      cfg.moisture = [];
-      for (let i = 1; i <= 5; i++) {
-        cfg.moisture.push(parseInt(document.getElementById(`beet${i}Target`).value) || 0);
-      }
-
-      cfg.luxTarget  = parseInt(document.getElementById('lightTarget').value)   || 180;
-      cfg.tempTarget = parseFloat(document.getElementById('tempTarget').value)  || 25;
-
-      // collect hourly light profile
-      cfg.lightProfile = [];
-      for (let h = 0; h < 24; h++) {
-        const el = document.getElementById(`lightProfile_${h}`);
-        cfg.lightProfile.push(el ? Math.min(100, Math.max(0, parseInt(el.value) || 0)) : 0);
-      }
-
-      fetch('/saveConfig', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },  // Specify JSON content type
-        body: JSON.stringify(cfg)  // Convert configuration object to JSON string
-      })
-        .then(res => res.text())  // Get response text
-        .then(() =>alert('Configuration saved.'))
-        .catch(err => alert('Error saving: ' + err));
-    }// --- Light profile grid builder ---
-function buildLightProfileGrid() {
-  const grid = document.getElementById('lightProfileGrid');
-  if (!grid) return;
-
-  const currentHour = new Date().getHours();
-
-  for (let h = 0; h < 24; h++) {
-    const col = document.createElement('div');
-    col.className = 'lp-col' + (h === currentHour ? ' active-hour' : '');
-
-    col.innerHTML =
-      '<div class="lp-bar-track">' +
-        '<div class="lp-bar" id="lightProfileBar_' + h + '"></div>' +
-      '</div>' +
-      '<input type="number" class="lp-input" id="lightProfile_' + h + '" ' +
-             'min="0" max="100" value="50">' +
-      '<div class="lp-label">' + String(h + 1).padStart(2, '0') + '</div>';
-
-    grid.appendChild(col);
-
-    const input = col.querySelector('input');
-    const track = col.querySelector('.lp-bar-track');
-    const bar   = col.querySelector('.lp-bar');
-
-    function setVal(pct) {
-      pct = Math.min(100, Math.max(0, Math.round(pct)));
-      input.value = pct;
-      bar.style.height = pct + '%';
-    }
-
-    input.addEventListener('input', function() {
-      setVal(parseInt(this.value) || 0);
-    });
-
-    let dragging = false;
-
-    track.addEventListener('pointerdown', function(e) {
-      dragging = true;
-      track.setPointerCapture(e.pointerId);
-      const rect = track.getBoundingClientRect();
-      setVal(100 - ((e.clientY - rect.top) / rect.height) * 100);
-    });
-
-    track.addEventListener('pointermove', function(e) {
-      if (!dragging) return;
-      const rect = track.getBoundingClientRect();
-      setVal(100 - ((e.clientY - rect.top) / rect.height) * 100);
-    });
-
-    track.addEventListener('pointerup',     function() { dragging = false; });
-    track.addEventListener('pointercancel', function() { dragging = false; });
-  }
-}
-
-// --- Slideranzeige aktualisieren ---
-window.addEventListener('DOMContentLoaded', () => {
-  const sliders = document.querySelectorAll('.slider');
-  sliders.forEach(slider => {
-    slider.addEventListener('input', () => {
-      document.getElementById(slider.id + 'Val').innerText = slider.value;
-    });
+/* ---- icons : expand <svg class="ic" data-ic="x"> ----------- */
+function initIcons(root = document) {
+  $$('.ic[data-ic]', root).forEach((svg) => {
+    if (svg.dataset.done) return;
+    svg.dataset.done = '1';
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '1.7');
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('stroke-linejoin', 'round');
+    svg.style.width = svg.style.width || '100%';
+    svg.style.height = svg.style.height || '100%';
+    const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+    use.setAttribute('href', '#i-' + svg.dataset.ic);
+    svg.appendChild(use);
   });
+}
 
-  buildLightProfileGrid();
-  loadConfig();
-  autoSetTime();
+/* ---- theme : auto-follow OS, with override ----------------- */
+const THEME_KEY = 'hb_theme';                       // 'auto' | 'day' | 'dusk'
+const darkMQ = window.matchMedia('(prefers-color-scheme: dark)');
+function effectiveMode(pref) { return pref === 'auto' ? (darkMQ.matches ? 'dusk' : 'day') : pref; }
+function applyTheme() {
+  const pref = localStorage.getItem(THEME_KEY) || 'auto';
+  const mode = effectiveMode(pref);
+  document.documentElement.setAttribute('data-mode', mode);
+  const meta = $('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', mode === 'dusk' ? '#1A1611' : '#F1EBDD');
+  const btn = $('#dusk-btn');
+  if (btn) btn.textContent = pref === 'auto' ? ('Auto · ' + (mode === 'dusk' ? 'dusk' : 'light')) : (pref === 'dusk' ? 'On' : 'Off');
+}
+darkMQ.addEventListener('change', () => {
+  if ((localStorage.getItem(THEME_KEY) || 'auto') === 'auto') applyTheme();
 });
 
-// --- Pflanzenverwaltung ---
-// Global array to store plant database
+/* ---- tabs -------------------------------------------------- */
+$$('.tab').forEach((t) => t.addEventListener('click', () => {
+  $$('.tab').forEach((x) => x.classList.toggle('active', x === t));
+  $$('.view').forEach((v) => v.classList.toggle('active', v.id === t.dataset.tab));
+  $('.scroll').scrollTop = 0;
+}));
+
+/* ---- sparkline (SVG path) ---------------------------------- */
+function spark(el, data, color, h) {
+  h = h || 30;
+  if (!data || data.length < 2) { el.innerHTML = ''; return; }
+  const W = 100, H = h;
+  let lo = Math.min(...data), hi = Math.max(...data);
+  if (lo === hi) { lo -= 1; hi += 1; }
+  const pad = (hi - lo) * 0.12; lo -= pad; hi += pad;
+  const pts = data.map((v, i) => [(i / (data.length - 1)) * W, H - ((v - lo) / (hi - lo)) * H]);
+  const line = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+  const area = line + ` L${W} ${H} L0 ${H} Z`;
+  const last = pts[pts.length - 1];
+  const gid = 'g' + Math.random().toString(36).slice(2, 7);
+  el.innerHTML =
+    `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%;height:${H}px;overflow:visible">` +
+    `<defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">` +
+    `<stop offset="0%" stop-color="${color}" stop-opacity="0.22"/>` +
+    `<stop offset="100%" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>` +
+    `<path d="${area}" fill="url(#${gid})"/>` +
+    `<path d="${line}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>` +
+    `<circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="2.4" fill="${color}" vector-effect="non-scaling-stroke"/></svg>`;
+}
+function areaChart(el, data, color, h, band) {
+  h = h || 110;
+  if (!data || data.length < 2) {
+    el.innerHTML = `<div class="note" style="height:${h}px;display:grid;place-items:center;text-align:center">Collecting trend… keep this page open.</div>`;
+    return;
+  }
+  const W = 100, H = h;
+  let series = band ? data.concat([band.lo, band.hi]) : data;
+  let lo = Math.min(...series), hi = Math.max(...series);
+  if (lo === hi) { lo -= 1; hi += 1; }
+  const pad = (hi - lo) * 0.12; lo -= pad; hi += pad;
+  const yOf = (v) => H - ((v - lo) / (hi - lo)) * H;
+  const pts = data.map((v, i) => [(i / (data.length - 1)) * W, yOf(v)]);
+  const line = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+  const area = line + ` L${W} ${H} L0 ${H} Z`;
+  const last = pts[pts.length - 1];
+  const gid = 'g' + Math.random().toString(36).slice(2, 7);
+  let bandSvg = '';
+  if (band) {
+    const t = yOf(band.hi), bh = yOf(band.lo) - yOf(band.hi);
+    bandSvg = `<rect x="0" y="${t.toFixed(1)}" width="${W}" height="${bh.toFixed(1)}" fill="var(--leaf)" opacity="0.10"/>` +
+      `<line x1="0" y1="${t.toFixed(1)}" x2="${W}" y2="${t.toFixed(1)}" stroke="var(--leaf)" stroke-width="1" stroke-dasharray="3 3" vector-effect="non-scaling-stroke" opacity="0.5"/>` +
+      `<line x1="0" y1="${(t + bh).toFixed(1)}" x2="${W}" y2="${(t + bh).toFixed(1)}" stroke="var(--leaf)" stroke-width="1" stroke-dasharray="3 3" vector-effect="non-scaling-stroke" opacity="0.5"/>`;
+  }
+  const grid = [0.25, 0.5, 0.75].map((g) => `<line x1="0" y1="${(H * g).toFixed(1)}" x2="${W}" y2="${(H * g).toFixed(1)}" stroke="var(--line)" stroke-width="1" vector-effect="non-scaling-stroke"/>`).join('');
+  el.innerHTML =
+    `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%;height:${H}px;overflow:visible">` +
+    `<defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">` +
+    `<stop offset="0%" stop-color="${color}" stop-opacity="0.26"/>` +
+    `<stop offset="100%" stop-color="${color}" stop-opacity="0.01"/></linearGradient></defs>` +
+    grid + bandSvg +
+    `<path d="${area}" fill="url(#${gid})"/>` +
+    `<path d="${line}" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>` +
+    `<circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="3" fill="${color}" vector-effect="non-scaling-stroke"/></svg>`;
+}
+
+/* ---- client-side history buffer ---------------------------- */
+const HIST_MAX = 150;
+const hist = { temp: [], hum: [], lux: [], soil: [[], [], [], [], []] };
+function pushHist(d) {
+  if (typeof d.tempC === 'number') hist.temp.push(d.tempC);
+  if (typeof d.humPerc === 'number') hist.hum.push(d.humPerc);
+  if (typeof d.lux === 'number') hist.lux.push(d.lux);
+  if (Array.isArray(d.soilPerc)) d.soilPerc.forEach((v, i) => hist.soil[i] && hist.soil[i].push(v));
+  ['temp', 'hum', 'lux'].forEach((k) => { while (hist[k].length > HIST_MAX) hist[k].shift(); });
+  hist.soil.forEach((s) => { while (s.length > HIST_MAX) s.shift(); });
+}
+
+/* ---- shared state ------------------------------------------ */
+const PLANT_KEY = 'hb_bedplants';
+let config = { moisture: [40, 50, 60, 70, 80], luxTarget: 800, tempTarget: 24, tempHyst: 2, lightProfile: new Array(24).fill(50) };
 let plants = [];
+let bedPlants = JSON.parse(localStorage.getItem(PLANT_KEY) || 'null') || ['', '', '', '', ''];
+let maintenance = false, lastData = {}, lastDiag = {};
+const valveState = [false, false, false, false, false];
+let pumpOn = false;
+const swatchColor = (name) => {
+  let h = 0; for (let i = 0; i < (name || '?').length; i++) h = (h * 31 + name.charCodeAt(i)) % 360;
+  return `hsl(${h} 38% 42%)`;
+};
 
-// Function to load plant database from server
-function loadPlants() {
-  // Fetch plant data from /getPlants endpoint
-  fetch('/getPlants')
-    .then(r => r.json())  // Parse JSON response
-    .then(data => {
-      plants = data;  // Store plant data globally
-      updatePlantDropdowns();  // Update all plant selection dropdowns
-    });
+/* ============================================================
+   RENDER — live (every poll)
+   ============================================================ */
+function renderDash() {
+  const d = lastData;
+  const soilAvg = Array.isArray(d.soilPerc) ? Math.round(d.soilPerc.reduce((a, b) => a + b, 0) / d.soilPerc.length) : '—';
+  // chips
+  const roof = (lastDiag.roofState || 'IDLE').toUpperCase();
+  const ledOn = (lastDiag.ledPWM || 0) > 0;
+  const chips = [
+    ['Roof', roof === 'ERROR' ? 'err' : 'on', roof],
+    ['Pump', d.pumpStatus && !/idle/i.test(d.pumpStatus) ? 'on' : '', d.pumpStatus && !/idle/i.test(d.pumpStatus) ? 'Run' : 'Idle'],
+    ['Light', ledOn ? 'on' : '', ledOn ? Math.round((lastDiag.ledPWM / 255) * 100) + '%' : 'Off'],
+    ['Water', d.waterCritical ? 'err' : d.waterLow ? 'warn' : 'on', d.waterCritical ? 'Crit' : d.waterLow ? 'Low' : 'OK'],
+  ];
+  $('#dash-chips').innerHTML = chips.map(([l, c, t]) =>
+    `<span class="chip ${c}"><span class="dot"></span>${l} · <strong style="font-weight:700">${t}</strong></span>`).join('');
+
+  // metrics
+  const tiles = [
+    ['temp', 'temp', 'Temp', fmt(d.tempC, 1), '°C', hist.temp, 'var(--terra)'],
+    ['hum', 'drop', 'Humidity', fmt(d.humPerc, 0), '%', hist.hum, 'var(--sky)'],
+    ['light', 'sun', 'Light', fmt(d.lux, 0), 'lx', hist.lux, 'var(--sun)'],
+    ['soil', 'leaf', 'Soil avg', soilAvg, '%', avgSeries(), 'var(--leaf)'],
+  ];
+  $('#dash-metrics').innerHTML = tiles.map(([dom, ic, name, val, u]) =>
+    `<div class="metric" data-domain="${dom}"><div class="m-top"><span class="m-name">${name}</span>` +
+    `<span class="m-ico"><svg class="ic" data-ic="${ic}"></svg></span></div>` +
+    `<div class="m-val">${val}<span class="u">${u}</span></div><div class="m-spark" id="sp-${dom}"></div></div>`).join('');
+  initIcons($('#dash-metrics'));
+  tiles.forEach(([dom, , , , , series, color]) => spark($('#sp-' + dom), series, color, 30));
+
+  // temp + light charts
+  $('#temp-target-note').textContent = `target ${config.tempTarget}±${config.tempHyst}°C`;
+  areaChart($('#chart-temp'), hist.temp, 'var(--terra)', 116, { lo: config.tempTarget - config.tempHyst, hi: config.tempTarget + config.tempHyst });
+  $('#light-note').textContent = `${fmt(d.lux, 0)} lx now`;
+  areaChart($('#chart-light'), hist.lux, 'var(--sun)', 92);
+
+  // dashboard beds
+  $('#soil-avg-note').textContent = 'avg ' + soilAvg + '%';
+  $('#dash-beds').innerHTML = (d.soilPerc || []).map((m, i) => {
+    const target = config.moisture[i];
+    const low = m < target - 8;
+    const name = bedPlants[i] || ('Bed ' + (i + 1));
+    return bedRow(i, name, m, target, low);
+  }).join('');
+}
+function avgSeries() {
+  const n = Math.min(...hist.soil.map((s) => s.length));
+  const out = [];
+  for (let i = 0; i < n; i++) out.push(Math.round(hist.soil.reduce((a, s) => a + s[s.length - n + i], 0) / 5));
+  return out;
+}
+function bedRow(i, name, m, target, low) {
+  return `<div class="bed"><div class="swatch" style="background:${swatchColor(name)}">${(name[0] || 'B').toUpperCase()}</div>` +
+    `<div class="b-main"><div class="b-top"><span><span class="b-plant">${esc(name)}</span> <span class="b-id">Bed ${i + 1}</span></span>` +
+    `<span class="b-val ${low ? 'low' : ''}">${m}% <span class="muted">/ ${target}</span></span></div>` +
+    `<div class="moist-track"><div class="moist-fill ${low ? 'low' : ''}" style="width:${m}%"></div>` +
+    `<div class="moist-target" style="left:${target}%"></div></div></div></div>`;
 }
 
-// Function to update all plant selection dropdowns with current plant database
-function updatePlantDropdowns() {
-  for (let i = 1; i <= 5; i++) {  // Loop through all 5 beds
-    const sel = document.getElementById(`beet${i}Plant`);  // Get dropdown element
-    sel.innerHTML = '<option value="">-- select --</option>';  // Reset with default option
-    plants.forEach(p => {  // Add each plant as an option
-      const opt = document.createElement('option');
-      opt.value = p.name;
-      opt.textContent = p.name;
-      sel.appendChild(opt);
-    });
-  }
+function renderDiag() {
+  const g = lastDiag, d = lastData;
+  $('#d-temp').textContent = fmt(g.temperature != null ? g.temperature : d.tempC, 1);
+  $('#d-hum').textContent = fmt(g.humidity != null ? g.humidity : d.humPerc, 0);
+  spark($('#spark-d-temp'), hist.temp, 'var(--terra)', 30);
+  spark($('#spark-d-hum'), hist.hum, 'var(--sky)', 30);
 
-  // Also update the delete plant dropdown
-  const deleteSel = document.getElementById('deletePlantSelect');
-  deleteSel.innerHTML = '<option value="">-- Select plant to delete --</option>';
-  plants.forEach(p => {
-    const opt = document.createElement('option');
-    opt.value = p.name;
-    opt.textContent = p.name;
-    deleteSel.appendChild(opt);
+  const roof = (g.roofState || 'IDLE').toUpperCase();
+  $('#roof-viz').dataset.state = roof;
+  $('#roof-label').textContent = roof;
+  $('#roof-state-inline').textContent = roof;
+  $('#roof-contact').textContent = boolTxt(g.roofContact, 'CLOSED', 'OPEN');
+  $('#roof-thresholds').textContent = `${(config.tempTarget + config.tempHyst).toFixed(1)} / ${(config.tempTarget - config.tempHyst).toFixed(1)} °C`;
+
+  // water
+  const wState = d.waterCritical ? 'Critical' : d.waterLow ? 'Low' : 'Normal';
+  const ws = $('#water-state'); ws.textContent = wState;
+  ws.style.color = d.waterCritical ? 'var(--rose)' : d.waterLow ? 'var(--sun)' : 'var(--leaf)';
+  $('#tank-fill').style.height = (d.waterCritical ? 7 : d.waterLow ? 21 : 78) + '%';
+  setChip($('#chip-low'), d.waterLow ? 'warn' : 'on', 'Low float ' + (d.waterLow ? 'tripped' : 'clear'));
+  setChip($('#chip-crit'), d.waterCritical ? 'err' : 'on', 'Critical ' + (d.waterCritical ? 'tripped' : 'clear'));
+  $('#diag-pump').textContent = g.pumpStatus || d.pumpStatus || '—';
+
+  // raw soil
+  const raw = g.soilRaw || [];
+  const head = $('#soil-raw').querySelector('.note');
+  $('#soil-raw').innerHTML = (raw.length ? raw : (d.soilPerc || []).map(() => '—')).map((rv, i) =>
+    `<div class="kv"><span class="k">Bed ${i + 1}${bedPlants[i] ? ' · ' + esc(bedPlants[i]) : ''}</span>` +
+    `<span class="v">${rv} <span class="muted">raw → ${(d.soilPerc || [])[i] != null ? d.soilPerc[i] + '%' : '—'}</span></span></div>`).join('') +
+    (head ? head.outerHTML : '');
+
+  // light controller
+  $('#lc-measured').textContent = fmt(g.light != null ? g.light : d.lux, 0) + ' lx';
+  const pwm = g.ledPWM || 0;
+  $('#lc-pwm').textContent = `${pwm} / 255 (${Math.round((pwm / 255) * 100)}%)`;
+  $('#lc-bar').style.width = (pwm / 255 * 100) + '%';
+}
+
+function renderSystem(sys) {
+  if (sys) {
+    $('#sys-uptime').textContent = sys.uptime || '—';
+    $('#sys-link').textContent = (sys.wifi || 'Connected') + ' · firmware web UI';
+    $('#sys-wifi').textContent = sys.wifi || '—';
+  }
+  const heap = lastDiag.freeHeap;
+  if (typeof heap === 'number') {
+    $('#sys-heap').textContent = (heap / 1024).toFixed(1) + ' KB';
+    $('#heap-bar').style.width = clamp(heap / 327680 * 100, 0, 100) + '%';
+  }
+  $('#sys-comm').textContent = lastDiag.commStatus || '—';
+  $('#sys-mode').textContent = maintenance ? 'Maintenance' : 'Automatic';
+  $('#sys-water').textContent = lastData.waterCritical ? 'Critical' : lastData.waterLow ? 'Low' : 'Normal';
+  const ef = (lastDiag.errorFlags || '').trim();
+  $('#sys-fault').textContent = (!ef || /^none$/i.test(ef)) ? 'None' : ef;
+  $('#sys-time-status').textContent = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+}
+
+/* ---- helpers ---------------------------------------------- */
+function fmt(v, dec) { return (typeof v === 'number' && !isNaN(v)) ? v.toFixed(dec) : '—'; }
+function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function boolTxt(v, t, f) { return (v === true || v === 'true' || v === 1) ? t : f; }
+function setChip(el, cls, txt) { el.className = 'chip ' + cls; el.innerHTML = '<span class="dot"></span>' + txt; }
+
+/* ============================================================
+   FETCH LOOP
+   ============================================================ */
+function setOnline(ok) {
+  $('#led-wifi').className = 'led ' + (ok ? 'on' : 'err');
+}
+async function poll() {
+  try {
+    const d = await fetch('/data.json').then((r) => r.json());
+    lastData = d;
+    maintenance = !!d.MAINTENANCE_MODE;
+    pushHist(d);
+    $('#hdr-mode').textContent = maintenance ? 'MAINT' : 'AUTO';
+    $('#hdr-mode').className = 'mode-badge' + (maintenance ? ' maint' : '');
+    $('#led-water').className = 'led ' + (d.waterCritical ? 'err' : d.waterLow ? 'warn' : 'on');
+    updateMaintUI();
+    setOnline(true);
+  } catch (e) { setOnline(false); }
+
+  try { lastDiag = await fetch('/diagnostics').then((r) => r.json()); } catch (e) {}
+  try { renderSystem(await fetch('/systemStatus').then((r) => r.json())); } catch (e) { renderSystem(null); }
+
+  const ef = (lastDiag.errorFlags || '').trim();
+  $('#led-fault').className = 'led' + ((ef && !/^none$/i.test(ef)) ? ' err' : '');
+
+  renderDash(); renderDiag(); renderLiveBeds();
+}
+
+/* live moisture in planting-plan (without rebuilding controls) */
+function renderLiveBeds() {
+  (lastData.soilPerc || []).forEach((m, i) => {
+    const fill = $('#pb-fill-' + i), val = $('#pb-val-' + i);
+    if (!fill) return;
+    const target = config.moisture[i], low = m < target - 8;
+    fill.style.width = m + '%'; fill.className = 'moist-fill' + (low ? ' low' : '');
+    if (val) { val.textContent = m; val.parentElement.style.color = low ? 'var(--terra)' : 'var(--ink)'; }
   });
 }
 
-// Function to add a new plant to the database
-function addPlant() {
-  // Get input values from form fields
-  const name = document.getElementById('newPlantName').value.trim();
-  const moisture = parseInt(document.getElementById('newPlantMoisture').value);
-  // Validate inputs
-  if (!name || isNaN(moisture)) return alert('Please enter name and target moisture');
+/* ============================================================
+   CONFIG : load / build / save
+   ============================================================ */
+async function loadConfig() {
+  try {
+    const c = await fetch('/loadConfig').then((r) => r.json());
+    config.moisture = c.moisture || [c.moisture1, c.moisture2, c.moisture3, c.moisture4, c.moisture5].map((x) => x || 50);
+    config.luxTarget = c.luxTarget || c.lux || 800;
+    if (c.tempTarget != null) config.tempTarget = c.tempTarget;
+    // firmware serialises the hysteresis band as `tempHysteresis`; accept the legacy `tempHyst` too
+    if (c.tempHysteresis != null) config.tempHyst = c.tempHysteresis;
+    else if (c.tempHyst != null) config.tempHyst = c.tempHyst;
+    if (Array.isArray(c.lightProfile) && c.lightProfile.length === 24) config.lightProfile = c.lightProfile.slice();
+  } catch (e) { /* keep defaults offline */ }
+  buildBeds(); buildLightProfile(); buildSteppers();
+}
 
-  // Send new plant data to server
-  fetch('/addPlant', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({name: name, targetMoisture: moisture})
-  })
-  .then(res => {
-    if (res.status === 409) {  // Plant name already exists (HTTP 409 Conflict)
-      throw new Error('A plant with this name already exists');
-    } else if (!res.ok) {  // Other server errors
-      throw new Error('Server error: ' + res.status);
+function buildSteppers() {
+  stepper($('#temp-stepper'), config.tempTarget, 12, 36, 0.5, '°C', 'var(--terra)', (v) => { config.tempTarget = v; $('#temp-thresholds').innerHTML = thresholdTxt(); });
+  stepper($('#lux-stepper'), config.luxTarget, 50, 2000, 10, 'lx', 'var(--sun)', (v) => { config.luxTarget = v; });
+  $('#temp-thresholds').innerHTML = thresholdTxt();
+}
+function thresholdTxt() {
+  return `Roof opens above <strong>${(config.tempTarget + config.tempHyst).toFixed(1)}°C</strong>, closes below <strong>${(config.tempTarget - config.tempHyst).toFixed(1)}°C</strong>.`;
+}
+function stepper(host, value, min, max, step, unit, color, onChange) {
+  host.innerHTML = `<button class="btn sm" data-d="-1">−</button>` +
+    `<div class="readout" style="color:${color}"><span class="sv">${value}</span><span class="u">${unit}</span></div>` +
+    `<button class="btn sm" data-d="1">+</button>`;
+  let val = value;
+  const sv = host.querySelector('.sv');
+  const upd = () => {
+    sv.textContent = val;
+    host.querySelector('[data-d="-1"]').disabled = val <= min;
+    host.querySelector('[data-d="1"]').disabled = val >= max;
+  };
+  host.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
+    val = clamp(+(val + step * (+b.dataset.d)).toFixed(2), min, max);
+    upd(); onChange(val);
+  }));
+  upd();
+}
+
+function buildBeds() {
+  $('#beds-list').innerHTML = config.moisture.map((target, i) => {
+    const name = bedPlants[i] || '';
+    const opts = '<option value="">— pick plant —</option>' + plants.map((p) =>
+      `<option value="${esc(p.name)}" ${p.name === name ? 'selected' : ''}>${esc(p.name)}</option>`).join('');
+    return `<div class="card" style="margin-bottom:var(--gap)">
+      <div class="row" style="gap:11px; margin-bottom:11px">
+        <div class="swatch" style="width:38px;height:38px;border-radius:10px;font-size:17px;background:${swatchColor(name || 'Bed')}">${(name[0] || (i + 1)).toString().toUpperCase()}</div>
+        <div style="flex:1"><div class="b-id">Bed ${i + 1}</div>
+          <div style="font-family:var(--serif);font-size:19px;font-weight:500;line-height:1.1">${esc(name || 'Unassigned')}</div></div>
+        <div style="text-align:right"><div class="readout" style="font-size:24px"><span id="pb-val-${i}">—</span><span class="u">%</span></div><div class="note">now</div></div>
+      </div>
+      <div class="moist-track" style="margin-bottom:12px"><div class="moist-fill" id="pb-fill-${i}" style="width:0%"></div>
+        <div class="moist-target" id="pb-tgt-${i}" style="left:${target}%"></div></div>
+      <div class="row" style="gap:10px; align-items:flex-end">
+        <div style="flex:1.3"><label class="field-label">Plant</label><select class="sel" data-bed="${i}">${opts}</select></div>
+        <div style="flex:1"><label class="field-label">Target <span id="tlbl-${i}">${target}</span>%</label>
+          <input class="rng" type="range" min="20" max="95" value="${target}" data-bedtarget="${i}"></div>
+      </div></div>`;
+  }).join('');
+
+  $$('#beds-list select[data-bed]').forEach((sel) => sel.addEventListener('change', () => {
+    const i = +sel.dataset.bed; bedPlants[i] = sel.value;
+    localStorage.setItem(PLANT_KEY, JSON.stringify(bedPlants));
+    const p = plants.find((x) => x.name === sel.value);
+    if (p && p.targetMoisture != null) {
+      config.moisture[i] = clamp(p.targetMoisture, 0, 100);
+      const rng = $(`[data-bedtarget="${i}"]`); rng.value = config.moisture[i];
+      $('#tlbl-' + i).textContent = config.moisture[i];
+      $('#pb-tgt-' + i).style.left = config.moisture[i] + '%';
     }
-    return res.text();  // Get response text for success
-  })
-  .then(() =>{
-    alert('Plant saved!');
-    // Clear input fields
-    document.getElementById('newPlantName').value = '';
-    document.getElementById('newPlantMoisture').value = '';
-    loadPlants(); // Reload plant database to update dropdowns
-  })
-  .catch(err => alert('Error: ' + err.message));  // Show specific error message
+    buildBeds(); renderLiveBeds();
+  }));
+  $$('#beds-list [data-bedtarget]').forEach((rng) => rng.addEventListener('input', () => {
+    const i = +rng.dataset.bedtarget; config.moisture[i] = +rng.value;
+    $('#tlbl-' + i).textContent = rng.value; $('#pb-tgt-' + i).style.left = rng.value + '%';
+    renderLiveBeds();
+  }));
+  renderLiveBeds();
 }
 
-// Function to delete a plant from the database
-function deletePlant() {
-  // Get selected plant name from dropdown
-  const plantName = document.getElementById('deletePlantSelect').value;
-  if (!plantName) {
-    alert('Please select a plant to delete');
-    return;
+function buildLightProfile() {
+  const nowH = new Date().getHours();
+  const rows = [[0, 12], [12, 24]];
+  $('#lp-grid').innerHTML = rows.map(([a, b]) =>
+    `<div class="lp-grid">` + config.lightProfile.slice(a, b).map((v, k) => {
+      const hour = a + k;
+      return `<div class="lp-col ${hour === nowH ? 'now' : ''}"><div class="lp-bar-track" data-hour="${hour}">` +
+        `<div class="lp-bar" style="height:${v}%"></div></div><span class="lp-h">${String(hour).padStart(2, '0')}</span></div>`;
+    }).join('') + `</div>`).join('<div style="height:8px"></div>');
+
+  $$('#lp-grid .lp-bar-track').forEach((track) => {
+    const hour = +track.dataset.hour, bar = track.querySelector('.lp-bar');
+    const set = (clientY) => {
+      const r = track.getBoundingClientRect();
+      const v = clamp(Math.round((1 - (clientY - r.top) / r.height) * 100), 0, 100);
+      config.lightProfile[hour] = v; bar.style.height = v + '%';
+    };
+    track.addEventListener('pointerdown', (e) => {
+      e.preventDefault(); track.setPointerCapture(e.pointerId); set(e.clientY);
+      const mv = (ev) => set(ev.clientY);
+      track.addEventListener('pointermove', mv);
+      const up = () => { track.removeEventListener('pointermove', mv); track.removeEventListener('pointerup', up); };
+      track.addEventListener('pointerup', up);
+    });
+  });
+}
+
+async function saveConfig() {
+  const body = {
+    moisture: config.moisture.map((v) => Math.round(v)),
+    luxTarget: Math.round(config.luxTarget),
+    tempTarget: config.tempTarget,
+    lightProfile: config.lightProfile.map((v) => clamp(Math.round(v), 0, 100)),
+  };
+  try {
+    const r = await fetch('/saveConfig', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!r.ok) throw new Error(r.status);
+    toast('Configuration saved');
+  } catch (e) { toast('Save failed — check connection', true); }
+}
+
+/* ============================================================
+   PLANTS
+   ============================================================ */
+async function loadPlants() {
+  try { plants = await fetch('/getPlants').then((r) => r.json()); }
+  catch (e) { plants = []; }
+  renderPlantLib(); buildBeds();
+}
+function renderPlantLib() {
+  const inUse = (n) => bedPlants.includes(n);
+  $('#plant-list').innerHTML = plants.length ? plants.map((p) => {
+    const used = inUse(p.name);
+    return `<div class="bed"><div class="swatch" style="width:26px;height:26px;border-radius:7px;font-size:12px;background:${swatchColor(p.name)}">${(p.name[0] || '?').toUpperCase()}</div>
+      <div class="b-main"><div class="b-top"><span class="b-plant" style="font-size:14px">${esc(p.name)}</span>
+        <span class="b-val">${p.targetMoisture}% <span class="muted">target</span></span></div>
+        ${used ? '<span class="state-pill" style="margin-top:4px;display:inline-block">in use</span>' : ''}</div>
+      <button class="btn sm" style="width:40px;padding:0;min-height:38px;${used ? '' : 'border-color:var(--rose);color:var(--rose)'}" data-del="${esc(p.name)}" ${used ? 'disabled' : ''}>
+        <svg class="ic" data-ic="trash"></svg></button></div>`;
+  }).join('') : '<div class="note">No plants yet — add one below.</div>';
+  initIcons($('#plant-list'));
+  $$('#plant-list [data-del]').forEach((b) => b.addEventListener('click', () => deletePlant(b.dataset.del)));
+}
+async function addPlant() {
+  const name = $('#new-plant-name').value.trim();
+  const target = +$('#new-plant-target').value;
+  if (!name) return toast('Enter a plant name', true);
+  if (plants.find((p) => p.name.toLowerCase() === name.toLowerCase())) return toast('Plant already exists', true);
+  try {
+    const r = await fetch('/addPlant', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, targetMoisture: target }) });
+    if (r.status === 409) throw new Error('exists');
+    if (!r.ok) throw new Error(r.status);
+    $('#new-plant-name').value = '';
+    toast('Plant added');
+    loadPlants();
+  } catch (e) {
+    // offline fallback: keep it locally so the UI still works on the bench
+    plants.push({ name, targetMoisture: target }); renderPlantLib(); buildBeds();
+    toast('Added (offline — not yet on controller)', true);
   }
-
-  // Confirm deletion with user
-  if (!confirm(`Are you sure you want to delete the plant "${plantName}"?`)) {
-    return;
-  }
-
-  // Send delete request to server
-  fetch('/deletePlant', {
-    method: 'DELETE',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({name: plantName})
-  })
-  .then(res => {
-    if (res.status === 404) {  // Plant not found
-      throw new Error('Plant not found');
-    } else if (!res.ok) {  // Other server errors
-      throw new Error('Server error: ' + res.status);
-    }
-    return res.text();  // Get response text for success
-  })
-  .then(() =>{
-    alert('Plant deleted!');
-    // Clear the delete dropdown selection
-    document.getElementById('deletePlantSelect').value = '';
-    loadPlants(); // Reload plant database to update all dropdowns
-  })
-  .catch(err => alert('Error: ' + err.message));
 }
-
-// Function to automatically set moisture target when a plant is selected from dropdown
-function setMoistureFromPlant(beetIndex) {
-  // Get the selected plant dropdown element
-  const sel = document.getElementById(`beet${beetIndex}Plant`);
-  // Find the selected plant in the plants array
-  const plant = plants.find(p => p.name === sel.value);
-
-  if (plant) {
-    // Get target moisture from plant data
-    let targetMoisture = plant.targetMoisture;
-    // Ensure moisture value is within valid range (0-100%)
-    targetMoisture = Math.min(100, Math.max(0, targetMoisture));
-
-    // Update the slider and display value
-    document.getElementById(`beet${beetIndex}Target`).value = targetMoisture;
-    document.getElementById(`beet${beetIndex}TargetVal`).innerText = targetMoisture;
+async function deletePlant(name) {
+  if (!confirm(`Delete plant “${name}”?`)) return;
+  try {
+    const r = await fetch('/deletePlant', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
+    if (!r.ok && r.status !== 404) throw new Error(r.status);
+    toast('Plant deleted'); loadPlants();
+  } catch (e) {
+    plants = plants.filter((p) => p.name !== name); renderPlantLib(); buildBeds();
+    toast('Removed (offline)', true);
   }
 }
 
-// --- Manual Control Functions ---
-// Formats a Date object as "YYYY-MM-DDTHH:mm" for datetime-local inputs
-function toLocalDatetimeString(date) {
-  const pad = n => String(n).padStart(2, '0');
-  return date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate()) +
-         'T' + pad(date.getHours()) + ':' + pad(date.getMinutes());
+/* ============================================================
+   MANUAL CONTROL
+   ============================================================ */
+function updateMaintUI() {
+  const b = $('#maint-banner'), btn = $('#maint-btn'), st = $('#maint-status'), mc = $('#manual-controls');
+  btn.textContent = maintenance ? 'Exit' : 'Enable';
+  btn.className = 'btn sm' + (maintenance ? ' on' : '');
+  b.className = 'banner' + (maintenance ? '' : ' live');
+  st.innerHTML = maintenance
+    ? '<strong>Maintenance mode.</strong> Automatic control paused — overrides below are live.'
+    : '<strong>Automatic control.</strong> Enable maintenance to take manual control.';
+  mc.style.opacity = maintenance ? '1' : '0.5';
+  mc.style.pointerEvents = maintenance ? 'auto' : 'none';
+}
+async function manual(command, value) {
+  const payload = { command };
+  if (value != null) payload.value = value;
+  try {
+    const r = await fetch('/manual', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    if (!r.ok) throw new Error(r.status);
+  } catch (e) { toast('Command failed', true); }
+}
+function buildValves() {
+  $('#valve-grid').innerHTML = [1, 2, 3, 4, 5].map((v) =>
+    `<button class="btn sm" data-valve="${v}" style="flex-direction:column;gap:2px;padding:9px 0;min-height:52px">
+      <svg class="ic" data-ic="drop" style="width:15px;height:15px"></svg><span style="font-size:10px">V${v}</span></button>`).join('');
+  initIcons($('#valve-grid'));
+  $$('#valve-grid [data-valve]').forEach((b) => b.addEventListener('click', () => {
+    const i = +b.dataset.valve - 1; valveState[i] = !valveState[i];
+    b.classList.toggle('on', valveState[i]);
+    b.querySelector('svg').style.color = valveState[i] ? '#fff' : 'var(--sky)';
+    manual(valveState[i] ? 'valve_open' : 'valve_close', +b.dataset.valve);
+  }));
 }
 
-// Silently syncs browser time to ESP32 on page load
-function autoSetTime() {
+/* ============================================================
+   WIRE-UP
+   ============================================================ */
+function autoSyncTime() {
   const now = new Date();
-  const input = document.getElementById('timeInput');
-  if (input) input.value = toLocalDatetimeString(now);
-
-  // Send local seconds-since-midnight so ESP32 hour matches the highlighted bar
-  const unixTimestamp = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
-  fetch('/setTime', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ timestamp: unixTimestamp })
-  })
-  .then(res => {
-    if (!res.ok) throw new Error(res.status);
-    document.getElementById('systemTime').innerText = now.toLocaleString();
-    document.getElementById('timeStatus').innerText = 'Auto-synced on load';
-    setTimeout(() => { document.getElementById('timeStatus').innerText = ''; }, 3000);
-  })
-  .catch(err => console.warn('[time] auto-sync failed:', err));
+  const pad = (n) => String(n).padStart(2, '0');
+  const local = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate()) + 'T' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+  const ti = $('#time-input'); if (ti) ti.value = local;
+  const ts = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+  fetch('/setTime', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ timestamp: ts }) }).catch(() => {});
 }
 
-// Function to set system time via HTTP
-function setSysTime() {
-  const timeInput = document.getElementById('timeInput').value;
-  if (!timeInput) {
-    alert('Please select a date and time');
-    return;
-  }
+function init() {
+  initIcons();
+  applyTheme();
+  buildValves();
 
-  // Parse the datetime-local format (YYYY-MM-DDTHH:mm) — getHours() returns local time
-  const dateObj = new Date(timeInput);
-  const unixTimestamp = dateObj.getHours() * 3600 + dateObj.getMinutes() * 60 + dateObj.getSeconds();
-
-  // Send time to server
-  fetch('/setTime', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ timestamp: unixTimestamp })
-  })
-  .then(res => {
-    if (!res.ok) throw new Error(`Error: ${res.status}`);
-    return res.text();
-  })
-  .then(() =>{
-    document.getElementById('timeStatus').innerText = 'Time set successfully';
-    document.getElementById('timeStatus').style.color = 'var(--accent)';
-    setTimeout(() => {
-      document.getElementById('timeStatus').innerText = '';
-    }, 3000);
-  })
-  .catch(err => {
-    console.error(`Error: ${err.message}`);
-    document.getElementById('timeStatus').innerText = `Error: ${err.message}`;
-    document.getElementById('timeStatus').style.color = 'var(--red)';
+  // theme override cycle
+  $('#dusk-btn').addEventListener('click', () => {
+    const order = ['auto', 'day', 'dusk'];
+    const cur = localStorage.getItem(THEME_KEY) || 'auto';
+    localStorage.setItem(THEME_KEY, order[(order.indexOf(cur) + 1) % 3]);
+    applyTheme();
   });
-}
 
-// Function to control pump (on/off)
-function controlPump(state) {
-  const command = state ? 'pump_on' : 'pump_off';
-  sendManualCommand(command, 'pump');
-}
+  // beds / config
+  $('#save-config-btn').addEventListener('click', saveConfig);
+  $('#new-plant-target').addEventListener('input', (e) => { $('#new-plant-target-lbl').textContent = 'Target moisture ' + e.target.value + '%'; });
+  $('#add-plant-btn').addEventListener('click', addPlant);
+  $('#new-plant-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') addPlant(); });
 
-// Function to control solenoid valves (open/close)
-function controlValve(valve, state) {
-  const command = state ? 'valve_open' : 'valve_close';
-  sendManualCommand(command, `valve${valve}`, valve);
-}
+  // manual
+  $('#maint-btn').addEventListener('click', () => { manual(maintenance ? 'maintenance_off' : 'maintenance_on'); maintenance = !maintenance; updateMaintUI(); });
+  $$('[data-roof]').forEach((b) => b.addEventListener('click', () => manual('roof_' + b.dataset.roof)));
+  $('#pump-btn').addEventListener('click', () => { pumpOn = !pumpOn; manual(pumpOn ? 'pump_on' : 'pump_off'); $('#pump-btn').textContent = 'Pump ' + (pumpOn ? 'ON' : 'OFF'); $('#pump-btn').className = 'btn sm' + (pumpOn ? ' sky' : ''); });
+  $('#led-slider').addEventListener('input', (e) => { $('#led-pct').innerHTML = Math.round(e.target.value / 255 * 100) + '<span class="u">%</span>'; });
+  $('#led-apply').addEventListener('click', () => { manual('led_pwm', +$('#led-slider').value); toast('Brightness applied'); });
+  $('#emerg-btn').addEventListener('click', () => { manual('emergency_stop'); manual('maintenance_on'); maintenance = true; updateMaintUI(); toast('EMERGENCY STOP', true); });
+  $('#ack-btn').addEventListener('click', async () => { try { await fetch('/ackErrors', { method: 'POST', headers: { 'Content-Type': 'application/json' } }); toast('Errors reset'); } catch (e) { toast('Reset failed', true); } });
 
-// Latest roof state reported by /diagnostics (updated every poll)
-let currentRoofState = null;
-
-// Function to control roof motor (open/close/stop)
-function controlRoofMotor(direction) {
-  if (direction === 'open' && (currentRoofState === 'OPEN' || currentRoofState === 'OPENING')) {
-    alert('Roof already open');
-    return;
-  }
-  sendManualCommand(`roof_${direction}`, 'roof');
-}
-
-// Function to set LED brightness (PWM value)
-function setLEDBrightness() {
-  const pwmValue = parseInt(document.getElementById('ledPWM').value);
-  sendManualCommand(`led_pwm`, 'led', pwmValue);
-}
-
-// Function to toggle maintenance mode on/off
-function toggleMaintenance() {
-  const active = document.getElementById('maintenanceBtn').dataset.active === 'true';
-  const cmd = active ? 'maintenance_off' : 'maintenance_on';
-  fetch('/manual', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ command: cmd })
-  })
-  .then(res => { if (!res.ok) throw new Error(res.status); })
-  .then(() => updateMaintenanceUI(!active))
-  .catch(err => alert('Error: ' + err));
-}
-
-function updateMaintenanceUI(active) {
-  const btn    = document.getElementById('maintenanceBtn');
-  const status = document.getElementById('maintenanceStatus');
-  const banner = document.getElementById('maintenanceBanner');
-  if (!btn) return;
-  btn.dataset.active = active;
-  const mc = document.getElementById('manualControls');
-  if (active) {
-    btn.textContent    = 'Deactivate';
-    status.innerHTML   = '<strong>Maintenance Mode:</strong> ON — automatic regulation paused.';
-    banner.style.borderLeftColor = 'var(--accent)';
-    banner.style.background      = 'rgba(76, 175, 120, 0.08)';
-    banner.style.color           = 'var(--accent)';
-    if (mc) mc.style.display = '';
-  } else {
-    btn.textContent    = 'Activate';
-    status.innerHTML   = '<strong>Maintenance Mode:</strong> Off — automatic regulation is running.';
-    banner.style.borderLeftColor = '';
-    banner.style.background      = '';
-    banner.style.color           = '';
-    if (mc) mc.style.display = 'none';
-  }
-}
-
-// Function to reset emergency stop and all latching error flags
-function ackErrors() {
-  fetch('/ackErrors', { method: 'POST', headers: { 'Content-Type': 'application/json' } })
-    .then(res => { if (!res.ok) throw new Error(res.status); return res.text(); })
-    .then(() => { document.getElementById('emergency_last').innerText = 'Never (reset)'; })
-    .catch(err => alert('Reset failed: ' + err));
-}
-
-// Function to trigger emergency stop
-function emergencyStop() {
-  sendManualCommand('emergency_stop', 'emergency');
-  document.getElementById('emergency_last').innerText = new Date().toLocaleTimeString();
-  fetch('/manual', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ command: 'maintenance_on' })
-  }).then(() => updateMaintenanceUI(true));
-}
-
-// Generic function to send manual control commands
-function sendManualCommand(command, component, value = null) {
-  const payload = { command: command };
-  if (value !== null) payload.value = value;
-
-  fetch('/manual', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  })
-  .then(res => {
-    if (!res.ok) throw new Error(`Error: ${res.status}`);
-    return res.text();
-  })
-  .then(() =>{
-    console.log(`${command} executed`);
-    // Show brief feedback
-    const statusId = `manual_${component}_status`;
-    if (document.getElementById(statusId)) {
-      document.getElementById(statusId).innerText = 'OK';
-      setTimeout(() => {
-        document.getElementById(statusId).innerText = '--';
-      }, 1000);
-    }
-  })
-  .catch(err => {
-    console.error(`Error: ${err.message}`);
-    alert(`Error controlling ${component}: ${err.message}`);
+  // time
+  $('#set-time-btn').addEventListener('click', () => {
+    const v = $('#time-input').value; if (!v) return toast('Pick a time', true);
+    const dt = new Date(v); const ts = dt.getHours() * 3600 + dt.getMinutes() * 60 + dt.getSeconds();
+    fetch('/setTime', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ timestamp: ts } )}).then(() => toast('Time synced')).catch(() => toast('Sync failed', true));
   });
-}
 
-// Update LED PWM display value when slider moves
-window.addEventListener('DOMContentLoaded', () => {
-  const ledSlider = document.getElementById('ledPWM');
-  if (ledSlider) {
-    ledSlider.addEventListener('input', () => {
-      const pwmValue = parseInt(ledSlider.value);
-      document.getElementById('led_pwm_value').innerText = pwmValue;
-    });
-  }
-  loadPlants();  // Load plant database and populate dropdowns
-});
+  loadPlants();
+  loadConfig();
+  autoSyncTime();
+  poll();
+  setInterval(poll, 2000);
+}
+document.addEventListener('DOMContentLoaded', init);

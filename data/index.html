@@ -1,402 +1,311 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hochbeet Control</title>
-  <link rel="stylesheet" href="style.css">
-  <script src="script.js" defer></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#F1EBDD" />
+  <title>Hochbeet</title>
+  <script>
+    /* set theme before first paint — no flash */
+    (function () {
+      var pref = localStorage.getItem('hb_theme') || 'auto';
+      var dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      var mode = pref === 'auto' ? (dark ? 'dusk' : 'day') : pref;
+      document.documentElement.setAttribute('data-mode', mode);
+    })();
+  </script>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <!-- icon sprite -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-dash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13.5 12 5l9 8.5"/><path d="M5.5 11.5V20h13v-8.5"/><path d="M10 20v-4.5h4V20"/></symbol>
+      <symbol id="i-beds" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21c0-5 0-8 3-10"/><path d="M12 13c-3-2-3-5-3-9"/><path d="M12 16c0-3 2-5 6-5-1 4-3 5-6 5Z"/><path d="M12 16c0-3-2-5-6-5 1 4 3 5 6 5Z"/></symbol>
+      <symbol id="i-diag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h3l2.5 7 4-15 2.5 8h6"/></symbol>
+      <symbol id="i-manual" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14M5 16h14"/><circle cx="9" cy="8" r="2.4" fill="var(--card)"/><circle cx="15" cy="16" r="2.4" fill="var(--card)"/></symbol>
+      <symbol id="i-system" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></symbol>
+      <symbol id="i-temp" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13.5V5a2 2 0 1 1 4 0v8.5a4 4 0 1 1-4 0Z"/><path d="M12 9v5.5"/></symbol>
+      <symbol id="i-drop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5c3.5 4.2 5.5 7 5.5 9.8A5.5 5.5 0 0 1 6.5 13.3C6.5 10.5 8.5 7.7 12 3.5Z"/></symbol>
+      <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"/></symbol>
+      <symbol id="i-leaf" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19c0-9 6-14 14-14 0 9-5 14-14 14Z"/><path d="M9 15c2.5-2.5 5-4 8-5"/></symbol>
+      <symbol id="i-roof" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11 12 5l9 6"/><path d="M5 10v9h14v-9"/><path d="M5 19h14"/></symbol>
+      <symbol id="i-pump" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="7.5"/><path d="M12 12 15 8.5M12 12l-3.5 1.5"/></symbol>
+      <symbol id="i-led" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3Z"/></symbol>
+      <symbol id="i-water" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14c2 0 2.5 1.5 4.5 1.5S10 14 12 14s2.5 1.5 4.5 1.5S19 14 21 14"/><path d="M3 18c2 0 2.5 1.5 4.5 1.5S10 18 12 18s2.5 1.5 4.5 1.5S19 18 21 18"/><path d="M5 10.5 7 4h10l2 6.5"/></symbol>
+      <symbol id="i-cpu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="7" width="10" height="10" rx="1.5"/><path d="M10 4v3M14 4v3M10 17v3M14 17v3M4 10h3M4 14h3M17 10h3M17 14h3"/></symbol>
+      <symbol id="i-wifi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9.5a10 10 0 0 1 14 0M7.5 12.5a6 6 0 0 1 9 0M10 15.5a2.5 2.5 0 0 1 4 0"/><circle cx="12" cy="18.5" r="0.6" fill="currentColor" stroke="none"/></symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+      <symbol id="i-stop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 4h7L20 8.5v7L15.5 20h-7L4 15.5v-7Z"/><path d="M12 8v4.5"/><circle cx="12" cy="16" r="0.6" fill="currentColor" stroke="none"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14M10 7V5h4v2M6.5 7l.8 12h9.4l.8-12"/></symbol>
+    </defs>
+  </svg>
 
-  <header>
-    <div class="hdr-left">
-      <h1>Hochbeet</h1>
-      <span class="hdr-id">ESP32-S3 · NODE-01</span>
-    </div>
-    <div class="hdr-right">
-      <div class="led-cluster">
-        <div class="led" id="led-wifi"  title="WiFi"></div>
-        <div class="led" id="led-water" title="Water"></div>
-        <div class="led" id="led-fault" title="Fault"></div>
+  <div class="app">
+    <!-- header -->
+    <header class="appbar">
+      <div class="brand">
+        <div class="wordmark">Hoch<em>beet</em></div>
+        <div class="sub">Bed 1–5 · 5 plots</div>
       </div>
-      <span class="hdr-mode" id="hdr-mode">--</span>
-      <span class="hdr-time" id="hdr-time">--:--:--</span>
-    </div>
-  </header>
-
-  <nav>
-    <button class="active" onclick="showSection('dashboard')">Dashboard</button>
-    <button onclick="showSection('beete')">Beds</button>
-    <button onclick="showSection('system')">System</button>
-    <button onclick="showSection('diagnostics')">Diagnostics</button>
-    <button onclick="showSection('manual')">Manual</button>
-  </nav>
-
-  <!-- DASHBOARD -->
-  <section id="dashboard" class="active">
-
-    <div class="sensor-grid">
-      <div class="card">
-        <div class="card-label">Temperature</div>
-        <div class="card-value" id="temp">--<span class="unit">°C</span></div>
-      </div>
-      <div class="card">
-        <div class="card-label">Humidity</div>
-        <div class="card-value" id="humidity">--<span class="unit">%</span></div>
-      </div>
-      <div class="card">
-        <div class="card-label">Light</div>
-        <div class="card-value" id="light">--<span class="unit">lx</span></div>
-      </div>
-      <div class="card">
-        <div class="card-label">Pump</div>
-        <div class="status-pill">
-          <div class="dot" id="pump-dot"></div>
-          <span id="pumpStatus">--</span>
+      <div class="meta">
+        <span class="mode-badge" id="hdr-mode">AUTO</span>
+        <div class="led-row">
+          <span class="led" id="led-fault" title="fault"></span>
+          <span class="led on" id="led-water" title="water"></span>
+          <span class="led on" id="led-wifi" title="link"></span>
         </div>
       </div>
-    </div>
+    </header>
 
-    <div class="flags">
-      <div class="flag" id="flag-roof">
-        <div class="flag-dot"></div>
-        <span class="flag-name">Roof</span>
-      </div>
-      <div class="flag" id="flag-pump">
-        <div class="flag-dot"></div>
-        <span class="flag-name">Pump</span>
-      </div>
-      <div class="flag" id="flag-light">
-        <div class="flag-dot"></div>
-        <span class="flag-name">Light</span>
-      </div>
-      <div class="flag" id="flag-water">
-        <div class="flag-dot"></div>
-        <span class="flag-name">Water</span>
-      </div>
-      <div class="flag" id="flag-estop">
-        <div class="flag-dot"></div>
-        <span class="flag-name">E-Stop</span>
-      </div>
-      <div class="flag" id="flag-auto">
-        <div class="flag-dot"></div>
-        <span class="flag-name">Auto</span>
-      </div>
-    </div>
-
-    <div class="section-label">Soil Moisture</div>
-
-    <div class="soil-block">
-      <div class="soil-row">
-        <span class="soil-label">BED-01</span>
-        <div class="soil-bar-track"><div class="soil-bar-fill" id="bed1_visual"></div></div>
-        <span class="soil-value"><span id="bed1_moisture">--</span>%</span>
-        <div class="soil-ind" id="soil-ind-1"></div>
-      </div>
-      <div class="soil-row">
-        <span class="soil-label">BED-02</span>
-        <div class="soil-bar-track"><div class="soil-bar-fill" id="bed2_visual"></div></div>
-        <span class="soil-value"><span id="bed2_moisture">--</span>%</span>
-        <div class="soil-ind" id="soil-ind-2"></div>
-      </div>
-      <div class="soil-row">
-        <span class="soil-label">BED-03</span>
-        <div class="soil-bar-track"><div class="soil-bar-fill" id="bed3_visual"></div></div>
-        <span class="soil-value"><span id="bed3_moisture">--</span>%</span>
-        <div class="soil-ind" id="soil-ind-3"></div>
-      </div>
-      <div class="soil-row">
-        <span class="soil-label">BED-04</span>
-        <div class="soil-bar-track"><div class="soil-bar-fill" id="bed4_visual"></div></div>
-        <span class="soil-value"><span id="bed4_moisture">--</span>%</span>
-        <div class="soil-ind" id="soil-ind-4"></div>
-      </div>
-      <div class="soil-row">
-        <span class="soil-label">BED-05</span>
-        <div class="soil-bar-track"><div class="soil-bar-fill" id="bed5_visual"></div></div>
-        <span class="soil-value"><span id="bed5_moisture">--</span>%</span>
-        <div class="soil-ind" id="soil-ind-5"></div>
-      </div>
-    </div>
-
-  </section>
-
-  <!-- BED SETTINGS -->
-  <section id="beete">
-    <h2>Bed Settings</h2>
-
-    <h3>Plant Management</h3>
-    <div class="card">
-      <h4>New Plant</h4>
-      <input type="text" id="newPlantName" placeholder="Plant name">
-      <input type="number" id="newPlantMoisture" placeholder="Target moisture %" min="0" max="100">
-      <button onclick="addPlant()" class="button">Add</button>
-    </div>
-
-    <div class="card">
-      <h4>Delete Plant</h4>
-      <select id="deletePlantSelect">
-        <option value="">-- Select plant --</option>
-      </select>
-      <button onclick="deletePlant()" class="button button-danger">Delete</button>
-    </div>
-
-    <h3>Bed Configuration</h3>
-    <div class="sensor-grid">
-
-      <div class="card">
-        <h4>Bed 1</h4>
-        <select id="beet1Plant" onchange="setMoistureFromPlant(1)">
-          <option value="">-- Plant --</option>
-        </select>
-        <input type="range" min="0" max="100" class="slider" id="beet1Target">
-        <p>Target: <span id="beet1TargetVal">--</span> %</p>
-      </div>
-
-      <div class="card">
-        <h4>Bed 2</h4>
-        <select id="beet2Plant" onchange="setMoistureFromPlant(2)">
-          <option value="">-- Plant --</option>
-        </select>
-        <input type="range" min="0" max="100" class="slider" id="beet2Target">
-        <p>Target: <span id="beet2TargetVal">--</span> %</p>
-      </div>
-
-      <div class="card">
-        <h4>Bed 3</h4>
-        <select id="beet3Plant" onchange="setMoistureFromPlant(3)">
-          <option value="">-- Plant --</option>
-        </select>
-        <input type="range" min="0" max="100" class="slider" id="beet3Target">
-        <p>Target: <span id="beet3TargetVal">--</span> %</p>
-      </div>
-
-      <div class="card">
-        <h4>Bed 4</h4>
-        <select id="beet4Plant" onchange="setMoistureFromPlant(4)">
-          <option value="">-- Plant --</option>
-        </select>
-        <input type="range" min="0" max="100" class="slider" id="beet4Target">
-        <p>Target: <span id="beet4TargetVal">--</span> %</p>
-      </div>
-
-      <div class="card">
-        <h4>Bed 5</h4>
-        <select id="beet5Plant" onchange="setMoistureFromPlant(5)">
-          <option value="">-- Plant --</option>
-        </select>
-        <input type="range" min="0" max="100" class="slider" id="beet5Target">
-        <p>Target: <span id="beet5TargetVal">--</span> %</p>
-      </div>
-
-    </div>
-
-    <div class="card">
-      <h4>Climate Control</h4>
-      <label>Target temperature (°C):</label>
-      <input type="number" id="tempTarget" min="0" max="60" step="0.5">
-      <p class="lp-hint">Roof opens when measured temperature exceeds the target by the hysteresis band, closes when it falls below by the same band.</p>
-    </div>
-
-    <div class="card">
-      <h4>Light Control</h4>
-      <label>Max lux at 100% LED power (calibration):</label>
-      <input type="number" id="lightTarget" min="0" max="10000">
-      <p class="lp-hint">Measure with a fully-lit empty greenhouse, then enter the lux value the BH1750 reports. The hourly profile below is interpreted as a percentage of this maximum.</p>
-    </div>
-
-    <div class="card">
-      <h4>Hourly Light Profile</h4>
-      <p class="lp-hint">Target brightness per hour as % of max lux (0 = LED off, 100 = full). Closed-loop controller drives the LED to hold the resulting lux setpoint.</p>
-      <div id="lightProfileGrid" class="light-profile-grid"></div>
-    </div>
-
-    <button onclick="saveConfig()" class="button">Save</button>
-    <button onclick="loadConfig()" class="button">Reload</button>
-  </section>
-
-  <!-- SYSTEM -->
-  <section id="system">
-    <h2>System Status</h2>
-
-    <div class="sensor-grid">
-      <div class="card">
-        <h3>Connection</h3>
-        <p id="wifiStatus">--</p>
-      </div>
-      <div class="card">
-        <h3>Uptime</h3>
-        <p id="uptime">--</p>
-      </div>
-    </div>
-
-    <h3>Time Synchronisation</h3>
-    <div class="card">
-      <h4>Set System Time</h4>
-      <p>Current time: <strong id="systemTime">--:--</strong></p>
-      <input type="datetime-local" id="timeInput">
-      <button class="button" onclick="setSysTime()">Set Time</button>
-      <p id="timeStatus"></p>
-    </div>
-  </section>
-
-  <!-- DIAGNOSTICS -->
-  <section id="diagnostics">
-    <h2>Diagnostics</h2>
-
-    <h3>Sensor Raw Values</h3>
-    <div class="sensor-grid">
-      <div class="card"><h4>Bed 1 (ADC)</h4><strong id="diag_moisture1">--</strong></div>
-      <div class="card"><h4>Bed 2 (ADC)</h4><strong id="diag_moisture2">--</strong></div>
-      <div class="card"><h4>Bed 3 (ADC)</h4><strong id="diag_moisture3">--</strong></div>
-      <div class="card"><h4>Bed 4 (ADC)</h4><strong id="diag_moisture4">--</strong></div>
-      <div class="card"><h4>Bed 5 (ADC)</h4><strong id="diag_moisture5">--</strong></div>
-      <div class="card"><h4>Temperature</h4><strong id="diag_temperature">--<span class="unit">°C</span></strong></div>
-      <div class="card"><h4>Humidity</h4><strong id="diag_humidity">--<span class="unit">%</span></strong></div>
-      <div class="card"><h4>Light</h4><strong id="diag_light">--<span class="unit">lx</span></strong></div>
-      <div class="card"><h4>Water Low</h4><strong id="diag_water_low">--</strong></div>
-      <div class="card"><h4>Water Critical</h4><strong id="diag_water_critical">--</strong></div>
-      <div class="card"><h4>Roof Reed</h4><strong id="diag_roof_contact">--</strong></div>
-    </div>
-
-    <h3>System States</h3>
-    <div class="sensor-grid">
-      <div class="card">
-        <h4>Roof</h4>
-        <div class="roof-viz" id="roof_viz" data-state="IDLE">
-          <div class="roof-viz-sky"></div>
-          <div class="roof-viz-panel"></div>
+    <main class="scroll">
+      <!-- ░░ GARDEN ░░ -->
+      <section class="view active" id="dash">
+        <div class="chips" id="dash-chips"></div>
+        <div class="grid-2" id="dash-metrics"></div>
+        <div class="card">
+          <div class="row between" style="margin-bottom:10px">
+            <span class="card-h"><svg class="ic" data-ic="temp"></svg> Temperature · session trend</span>
+            <span class="note" id="temp-target-note">target —</span>
+          </div>
+          <div id="chart-temp" style="height:116px"></div>
         </div>
-        <p class="roof-viz-label"><span id="diag_roof_state">--</span></p>
-      </div>
-      <div class="card"><h4>Pump</h4><p id="diag_pump_status">--</p></div>
-      <div class="card"><h4>LED PWM</h4><strong id="diag_led_pwm">--<span class="unit">/ 255</span></strong></div>
-      <div class="card"><h4>Error Flags</h4><p id="diag_error_flags">--</p></div>
-    </div>
-
-    <h3>System Information</h3>
-    <div class="sensor-grid">
-      <div class="card"><h4>Network</h4><p id="diag_comm_status">--</p></div>
-      <div class="card"><h4>Free Memory</h4><strong id="diag_free_heap">--<span class="unit">KB</span></strong></div>
-    </div>
-  </section>
-
-  <!-- MANUAL CONTROL -->
-  <section id="manual">
-    <h2>Manual Control</h2>
-
-    <div class="warning-banner" id="maintenanceBanner">
-      <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap">
-        <span id="maintenanceStatus"><strong>Maintenance Mode:</strong> Off — automatic regulation is running.</span>
-        <button class="button" id="maintenanceBtn" onclick="toggleMaintenance()">Activate</button>
-      </div>
-    </div>
-
-    <h3>Emergency Stop</h3>
-    <div class="sensor-grid">
-      <div class="card emergency-card" style="grid-column:1/-1">
-        <h4>Immediate Shutdown</h4>
-        <p>Deactivates all actuators immediately and sets the emergency stop flag.</p>
-        <button class="button button-emergency" onclick="emergencyStop()">Emergency Stop</button>
-        <p style="margin-top:0.75rem">Last triggered: <span id="emergency_last">Never</span></p>
-        <button class="button" style="margin-top:1rem" onclick="ackErrors()">Reset Emergency Stop</button>
-      </div>
-    </div>
-
-    <div id="manualControls" style="display:none">
-
-    <h3>Pump</h3>
-    <div class="sensor-grid">
-      <div class="card">
-        <h4>Water Pump</h4>
-        <div class="button-row">
-          <button class="button" onclick="controlPump(true)">On</button>
-          <button class="button button-danger" onclick="controlPump(false)">Off</button>
+        <div class="card">
+          <div class="row between" style="margin-bottom:10px">
+            <span class="card-h"><svg class="ic" data-ic="sun"></svg> Light · session trend</span>
+            <span class="note" id="light-note">— lx</span>
+          </div>
+          <div id="chart-light" style="height:92px"></div>
         </div>
-        <p>Status: <span id="manual_pump_status">--</span></p>
-      </div>
-    </div>
-
-    <h3>Solenoid Valves</h3>
-    <div class="sensor-grid">
-
-      <div class="card">
-        <h4>Valve 1</h4>
-        <div class="button-row">
-          <button class="button" onclick="controlValve(1, true)">Open</button>
-          <button class="button button-danger" onclick="controlValve(1, false)">Close</button>
+        <div class="card">
+          <div class="row between" style="margin-bottom:4px">
+            <span class="card-h"><svg class="ic" data-ic="leaf"></svg> Soil moisture · 5 beds</span>
+            <span class="note" id="soil-avg-note">avg —</span>
+          </div>
+          <div id="dash-beds"></div>
         </div>
-        <p>Status: <span id="manual_valve1_status">--</span></p>
-      </div>
+      </section>
 
-      <div class="card">
-        <h4>Valve 2</h4>
-        <div class="button-row">
-          <button class="button" onclick="controlValve(2, true)">Open</button>
-          <button class="button button-danger" onclick="controlValve(2, false)">Close</button>
+      <!-- ░░ BEDS ░░ -->
+      <section class="view" id="beds">
+        <div class="sec-label">Climate &amp; roof</div>
+        <div class="card">
+          <div class="field-label" style="margin-bottom:8px">Target temperature</div>
+          <div class="stepper" id="temp-stepper"></div>
+          <div class="note" id="temp-thresholds" style="margin-top:12px">—</div>
         </div>
-        <p>Status: <span id="manual_valve2_status">--</span></p>
-      </div>
 
-      <div class="card">
-        <h4>Valve 3</h4>
-        <div class="button-row">
-          <button class="button" onclick="controlValve(3, true)">Open</button>
-          <button class="button button-danger" onclick="controlValve(3, false)">Close</button>
+        <div class="sec-label">Planting plan</div>
+        <div id="beds-list"></div>
+
+        <div class="sec-label">Plant library</div>
+        <div class="card" id="plant-lib">
+          <div id="plant-list"></div>
+          <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--line)">
+            <div class="field-label" style="margin-bottom:8px">Add a plant</div>
+            <div class="row" style="gap:8px">
+              <input class="txt" id="new-plant-name" style="flex:1.4" placeholder="Name e.g. Strawberry" maxlength="20" />
+              <button class="btn primary" id="add-plant-btn" style="flex-shrink:0"><svg class="ic" data-ic="plus"></svg> Add</button>
+            </div>
+            <div class="row between" style="margin-top:12px; gap:12px">
+              <span class="field-label" id="new-plant-target-lbl" style="margin:0; white-space:nowrap">Target moisture 60%</span>
+              <input class="rng" id="new-plant-target" type="range" min="20" max="95" value="60" style="flex:1" />
+            </div>
+          </div>
         </div>
-        <p>Status: <span id="manual_valve3_status">--</span></p>
-      </div>
 
-      <div class="card">
-        <h4>Valve 4</h4>
-        <div class="button-row">
-          <button class="button" onclick="controlValve(4, true)">Open</button>
-          <button class="button button-danger" onclick="controlValve(4, false)">Close</button>
+        <div class="sec-label">24-hour light profile</div>
+        <div class="card">
+          <div class="row between" style="margin-bottom:12px">
+            <span class="card-h"><svg class="ic" data-ic="sun"></svg> Intensity by hour</span>
+            <span class="note">100% = peak</span>
+          </div>
+          <div id="lp-grid"></div>
+          <div class="row between" style="margin-top:14px; padding-top:14px; border-top:1px solid var(--line); gap:12px">
+            <div>
+              <div class="field-label" style="margin:0">Maximum light</div>
+              <div class="note">Lux at 100% intensity</div>
+            </div>
+            <div style="width:150px; flex-shrink:0" class="stepper" id="lux-stepper"></div>
+          </div>
+          <div class="note" style="margin-top:10px">Drag a bar to reshape the day, then save. The controller blends LED output to hit this curve, subtracting daylight the sensor already sees.</div>
         </div>
-        <p>Status: <span id="manual_valve4_status">--</span></p>
-      </div>
 
-      <div class="card">
-        <h4>Valve 5</h4>
-        <div class="button-row">
-          <button class="button" onclick="controlValve(5, true)">Open</button>
-          <button class="button button-danger" onclick="controlValve(5, false)">Close</button>
+        <button class="btn primary full" id="save-config-btn" style="margin-top:4px">Save configuration to controller</button>
+        <div class="spacer"></div>
+      </section>
+
+      <!-- ░░ SENSORS ░░ -->
+      <section class="view" id="diag">
+        <div class="sec-label">Atmosphere · DHT sensor</div>
+        <div class="grid-2">
+          <div class="metric" data-domain="temp">
+            <div class="m-top"><span class="m-name">Temperature</span><span class="m-ico" style="color:var(--terra)"><svg class="ic" data-ic="temp"></svg></span></div>
+            <div class="m-val"><span id="d-temp">—</span><span class="u">°C</span></div>
+            <div class="m-spark" id="spark-d-temp"></div>
+          </div>
+          <div class="metric" data-domain="hum">
+            <div class="m-top"><span class="m-name">Humidity</span><span class="m-ico" style="color:var(--sky)"><svg class="ic" data-ic="drop"></svg></span></div>
+            <div class="m-val"><span id="d-hum">—</span><span class="u">%</span></div>
+            <div class="m-spark" id="spark-d-hum"></div>
+          </div>
         </div>
-        <p>Status: <span id="manual_valve5_status">--</span></p>
-      </div>
 
-    </div>
-
-    <h3>Roof Motor</h3>
-    <div class="sensor-grid">
-      <div class="card">
-        <h4>Roof</h4>
-        <div class="button-row">
-          <button class="button" onclick="controlRoofMotor('open')">Open</button>
-          <button class="button" onclick="controlRoofMotor('stop')">Stop</button>
-          <button class="button button-danger" onclick="controlRoofMotor('close')">Close</button>
+        <div class="sec-label">Roof actuator</div>
+        <div class="card">
+          <div class="roof-viz" id="roof-viz" data-state="IDLE">
+            <div class="roof-sun"></div><div class="roof-panel"></div><div class="roof-bed"></div>
+            <div class="roof-state-label" id="roof-label">—</div>
+          </div>
+          <div class="kv"><span class="k">Reed contact (closed)</span><span class="v" id="roof-contact">—</span></div>
+          <div class="kv"><span class="k">Opens / closes at</span><span class="v" id="roof-thresholds">—</span></div>
         </div>
-        <p>Status: <span id="manual_roof_status">--</span></p>
-      </div>
-    </div>
 
-    <h3>LED Lighting</h3>
-    <div class="sensor-grid">
-      <div class="card">
-        <h4>Brightness (PWM)</h4>
-        <input type="range" min="0" max="255" id="ledPWM" class="slider" value="0">
-        <p>PWM: <span id="led_pwm_value">0</span> / 255</p>
-        <button class="button" onclick="setLEDBrightness()">Apply</button>
-        <p>Status: <span id="manual_led_status">--</span></p>
-      </div>
-    </div>
+        <div class="sec-label">Water subsystem</div>
+        <div class="card">
+          <div class="row" style="gap:16px; align-items:center">
+            <div class="tank">
+              <div class="tank-fill" id="tank-fill" style="height:78%"></div>
+              <div class="float-line low" data-l="LOW" style="bottom:30%"></div>
+              <div class="float-line crit" data-l="CRIT" style="bottom:12%"></div>
+            </div>
+            <div style="flex:1">
+              <div class="readout" id="water-state" style="font-size:24px">—</div>
+              <div class="m-name" style="margin-bottom:8px">Reservoir · 2 float switches</div>
+              <div class="chips">
+                <span class="chip on" id="chip-low"><span class="dot"></span>Low float —</span>
+                <span class="chip on" id="chip-crit"><span class="dot"></span>Critical —</span>
+              </div>
+            </div>
+          </div>
+          <div class="note" style="margin-top:12px">No continuous level sensor — only two float switches. Pumping is blocked when the critical float trips.</div>
+          <div class="kv" style="margin-top:4px"><span class="k">Pump</span><span class="v" id="diag-pump">—</span></div>
+        </div>
 
-    </div> <!-- #manualControls -->
+        <div class="sec-label">Raw soil sensors (ADC)</div>
+        <div class="card" id="soil-raw">
+          <div class="note" style="margin-top:8px">12-bit ADC, 0–4095. Higher raw = drier soil (inverse). Calibrated per probe in firmware.</div>
+        </div>
 
-  </section>
+        <div class="sec-label">Light controller</div>
+        <div class="card">
+          <div class="kv"><span class="k">Measured</span><span class="v" id="lc-measured">— lx</span></div>
+          <div class="kv"><span class="k">LED PWM duty</span><span class="v" id="lc-pwm">— / 255</span></div>
+          <div class="moist-track" style="height:9px; margin-top:10px"><div class="moist-fill" id="lc-bar" style="width:0%; background:linear-gradient(90deg, var(--sun), var(--terra))"></div></div>
+        </div>
+        <div class="spacer"></div>
+      </section>
 
-  <footer>2026 · ESP32-S3 Greenhouse Control</footer>
+      <!-- ░░ CONTROL ░░ -->
+      <section class="view" id="manual">
+        <div class="banner live" id="maint-banner">
+          <span class="b-txt" id="maint-status"><strong>Automatic control.</strong> Enable maintenance to take manual control.</span>
+          <button class="btn sm" id="maint-btn">Enable</button>
+        </div>
 
+        <div id="manual-controls">
+          <div class="card">
+            <div class="card-h" style="margin-bottom:11px"><svg class="ic" data-ic="roof"></svg> Roof · <span id="roof-state-inline" style="color:var(--ink)">—</span></div>
+            <div class="seg">
+              <button class="btn" data-roof="open">Open</button>
+              <button class="btn" data-roof="stop">Stop</button>
+              <button class="btn" data-roof="close">Close</button>
+            </div>
+          </div>
+
+          <div class="card" style="margin-top:var(--gap)">
+            <div class="row between" style="margin-bottom:11px">
+              <span class="card-h"><svg class="ic" data-ic="pump"></svg> Pump &amp; valves</span>
+              <button class="btn sm" id="pump-btn">Pump OFF</button>
+            </div>
+            <div class="note" style="margin-bottom:10px">Open a valve, then run the pump. Valves close on emergency stop.</div>
+            <div class="grid-2" id="valve-grid" style="grid-template-columns:repeat(5,1fr); gap:7px"></div>
+          </div>
+
+          <div class="card" style="margin-top:var(--gap)">
+            <div class="card-h" style="margin-bottom:11px"><svg class="ic" data-ic="led"></svg> Grow light (manual PWM)</div>
+            <div class="row" style="gap:14px">
+              <div class="readout" id="led-pct" style="font-size:24px; color:var(--sun); min-width:56px">0<span class="u">%</span></div>
+              <input class="rng" id="led-slider" type="range" min="0" max="255" value="0" style="accent-color:var(--sun)" />
+            </div>
+            <button class="btn sm full" id="led-apply" style="margin-top:12px">Apply brightness</button>
+          </div>
+        </div>
+
+        <div class="sec-label">Failsafe</div>
+        <button class="btn-emerg" id="emerg-btn"><svg class="ic" data-ic="stop"></svg> Emergency stop</button>
+        <button class="btn full" id="ack-btn" style="margin-top:8px">Acknowledge &amp; reset errors</button>
+        <div class="note" style="text-align:center; margin-top:4px">Emergency stop cuts pump, valves and light and parks the roof. Always available.</div>
+        <div class="spacer"></div>
+      </section>
+
+      <!-- ░░ SYSTEM ░░ -->
+      <section class="view" id="system">
+        <div class="card" style="display:flex; align-items:center; gap:16px">
+          <span class="m-ico" style="color:var(--accent); width:30px; height:30px"><svg class="ic" data-ic="clock" style="width:28px;height:28px"></svg></span>
+          <div style="flex:1">
+            <div class="m-name" style="margin-bottom:4px">Controller</div>
+            <div style="font-family:var(--serif); font-size:21px; font-weight:500; line-height:1.15">Up <span id="sys-uptime">—</span></div>
+            <div class="note" id="sys-link" style="margin-top:4px">—</div>
+          </div>
+        </div>
+
+        <div class="sec-label">Health</div>
+        <div class="card">
+          <div class="row between" style="margin-bottom:10px">
+            <span class="card-h"><svg class="ic" data-ic="cpu"></svg> Free heap</span>
+            <span class="v" id="sys-heap" style="font-size:13px; font-weight:700">— KB</span>
+          </div>
+          <div class="moist-track" style="height:9px"><div class="moist-fill" id="heap-bar" style="width:0%; background:linear-gradient(90deg, var(--leaf), var(--sky))"></div></div>
+          <div class="row between" style="margin-top:6px"><span class="note">0</span><span class="note">320 KB total</span></div>
+        </div>
+
+        <div class="sec-label">Time</div>
+        <div class="card">
+          <div class="kv"><span class="k">Controller hour</span><span class="v" id="sys-time-status">—</span></div>
+          <input class="txt" id="time-input" type="datetime-local" style="margin:10px 0" />
+          <button class="btn full" id="set-time-btn">Sync controller to this time</button>
+          <div class="note" style="margin-top:8px">Time is auto-synced from this phone on load. The light profile follows the controller's local hour.</div>
+        </div>
+
+        <div class="sec-label">Network &amp; firmware</div>
+        <div class="card">
+          <div class="kv"><span class="k">Access point</span><span class="v">Esp-32-Webserver</span></div>
+          <div class="kv"><span class="k">IP address</span><span class="v">192.168.4.1</span></div>
+          <div class="kv"><span class="k">Link status</span><span class="v" id="sys-wifi">—</span></div>
+          <div class="kv"><span class="k">Comm bus</span><span class="v" id="sys-comm">—</span></div>
+        </div>
+
+        <div class="sec-label">Safety</div>
+        <div class="card">
+          <div class="kv"><span class="k">Mode</span><span class="v" id="sys-mode">—</span></div>
+          <div class="kv"><span class="k">Water level</span><span class="v" id="sys-water">—</span></div>
+          <div class="kv"><span class="k">Active fault</span><span class="v" id="sys-fault">None</span></div>
+        </div>
+
+        <div class="sec-label">Appearance</div>
+        <div class="card">
+          <div class="row between">
+            <span class="card-h">Dusk mode</span>
+            <button class="btn sm" id="dusk-btn">Off</button>
+          </div>
+        </div>
+        <div class="spacer"></div>
+      </section>
+    </main>
+
+    <!-- bottom nav -->
+    <nav class="tabbar" id="tabbar">
+      <button class="tab active" data-tab="dash"><svg class="ic" data-ic="dash"></svg><span class="t-label">Garden</span></button>
+      <button class="tab" data-tab="beds"><svg class="ic" data-ic="beds"></svg><span class="t-label">Beds</span></button>
+      <button class="tab" data-tab="diag"><svg class="ic" data-ic="diag"></svg><span class="t-label">Sensors</span></button>
+      <button class="tab" data-tab="manual"><svg class="ic" data-ic="manual"></svg><span class="t-label">Control</span></button>
+      <button class="tab" data-tab="system"><svg class="ic" data-ic="system"></svg><span class="t-label">System</span></button>
+    </nav>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <script src="script.js"></script>
 </body>
 </html>
