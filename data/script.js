@@ -4,10 +4,10 @@
    Data contract:
      GET  /data.json     tempC humPerc lux pumpStatus MAINTENANCE_MODE
                          soilPerc[5] waterLow waterCritical
+                         (waterLow/waterCritical bool: true = sufficient, false = tripped)
      GET  /systemStatus  wifi uptime
      GET  /diagnostics   soilRaw[5] temperature humidity light roofState
                          roofContact pumpStatus errorFlags commStatus ledPWM freeHeap
-                         waterLow waterCritical
      GET  /loadConfig    moisture[5] luxTarget tempTarget lightProfile[24]
      POST /saveConfig    {moisture[5], luxTarget, tempTarget, lightProfile[24]}
      GET  /getPlants  ·  POST /addPlant  ·  DELETE /deletePlant
@@ -168,7 +168,7 @@ function renderDash() {
     ['Roof', roof === 'ERROR' ? 'err' : 'on', roof],
     ['Pump', d.pumpStatus && !/idle/i.test(d.pumpStatus) ? 'on' : '', d.pumpStatus && !/idle/i.test(d.pumpStatus) ? 'Run' : 'Idle'],
     ['Light', ledOn ? 'on' : '', ledOn ? Math.round((lastDiag.ledPWM / 255) * 100) + '%' : 'Off'],
-    ['Water', d.waterCritical ? 'err' : d.waterLow ? 'warn' : 'on', d.waterCritical ? 'Crit' : d.waterLow ? 'Low' : 'OK'],
+    ['Water', !d.waterCritical ? 'err' : !d.waterLow ? 'warn' : 'on', !d.waterCritical ? 'Crit' : !d.waterLow ? 'Low' : 'OK'],
   ];
   $('#dash-chips').innerHTML = chips.map(([l, c, t]) =>
     `<span class="chip ${c}"><span class="dot"></span>${l} · <strong style="font-weight:700">${t}</strong></span>`).join('');
@@ -231,12 +231,12 @@ function renderDiag() {
   $('#roof-thresholds').textContent = `${(config.tempTarget + config.tempHyst).toFixed(1)} / ${(config.tempTarget - config.tempHyst).toFixed(1)} °C`;
 
   // water
-  const wState = d.waterCritical ? 'Critical' : d.waterLow ? 'Low' : 'Normal';
+  const wState = !d.waterCritical ? 'Critical' : !d.waterLow ? 'Low' : 'Normal';
   const ws = $('#water-state'); ws.textContent = wState;
-  ws.style.color = d.waterCritical ? 'var(--rose)' : d.waterLow ? 'var(--sun)' : 'var(--leaf)';
-  $('#tank-fill').style.height = (d.waterCritical ? 7 : d.waterLow ? 21 : 78) + '%';
-  setChip($('#chip-low'), d.waterLow ? 'warn' : 'on', 'Low float ' + (d.waterLow ? 'tripped' : 'clear'));
-  setChip($('#chip-crit'), d.waterCritical ? 'err' : 'on', 'Critical ' + (d.waterCritical ? 'tripped' : 'clear'));
+  ws.style.color = !d.waterCritical ? 'var(--rose)' : !d.waterLow ? 'var(--sun)' : 'var(--leaf)';
+  $('#tank-fill').style.height = (!d.waterCritical ? 7 : !d.waterLow ? 21 : 78) + '%';
+  setChip($('#chip-low'), !d.waterLow ? 'warn' : 'on', 'Low float ' + (!d.waterLow ? 'tripped' : 'clear'));
+  setChip($('#chip-crit'), !d.waterCritical ? 'err' : 'on', 'Critical ' + (!d.waterCritical ? 'tripped' : 'clear'));
   $('#diag-pump').textContent = g.pumpStatus || d.pumpStatus || '—';
 
   // raw soil
@@ -267,7 +267,7 @@ function renderSystem(sys) {
   }
   $('#sys-comm').textContent = lastDiag.commStatus || '—';
   $('#sys-mode').textContent = maintenance ? 'Maintenance' : 'Automatic';
-  $('#sys-water').textContent = lastData.waterCritical ? 'Critical' : lastData.waterLow ? 'Low' : 'Normal';
+  $('#sys-water').textContent = !lastData.waterCritical ? 'Critical' : !lastData.waterLow ? 'Low' : 'Normal';
   const ef = (lastDiag.errorFlags || '').trim();
   $('#sys-fault').textContent = (!ef || /^none$/i.test(ef)) ? 'None' : ef;
   $('#sys-time-status').textContent = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
@@ -293,7 +293,7 @@ async function poll() {
     pushHist(d);
     $('#hdr-mode').textContent = maintenance ? 'MAINT' : 'AUTO';
     $('#hdr-mode').className = 'mode-badge' + (maintenance ? ' maint' : '');
-    $('#led-water').className = 'led ' + (d.waterCritical ? 'err' : d.waterLow ? 'warn' : 'on');
+    $('#led-water').className = 'led ' + (!d.waterCritical ? 'err' : !d.waterLow ? 'warn' : 'on');
     updateMaintUI();
     setOnline(true);
   } catch (e) { setOnline(false); }

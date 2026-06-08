@@ -19,6 +19,13 @@ struct LiveData {
 
 // ── Config ────────────────────────────────────────────────────────────────────
 // Loaded from config.json by fileManager; persisted on LittleFS.
+//
+// CANONICAL FIELD SET. When adding/removing a field here, update ALL of:
+//   1. fileManager.cpp  configToJson()      — persistence writer
+//   2. fileManager.cpp  jsonToConfig()       — persistence reader
+//   3. webBackend.cpp   applyJsonToConfig()  — web apply
+//   4. webBackend.cpp   validateConfig()     — web input bounds
+// These four enumerate the fields by hand and silently drift if one is missed.
 struct Config {
     // Bed setpoints
     int           moisture[5];            // Target soil moisture 0–100% per bed

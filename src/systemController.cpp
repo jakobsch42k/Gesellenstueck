@@ -54,6 +54,15 @@ void SystemController::run() {
     // 1. Read all sensors
     sensors_update(liveData, errorFlags, config);
 
+    // 1b. Latch critical water fault. waterCritical reads true when water is
+    //     present; a false reading means the lower float tripped (tank empty).
+    //     Latch so the lockout holds until the user acknowledges via /ackErrors.
+    if (!liveData.waterCritical && !errorFlags.ERR_WATER_CRITICAL) {
+        errorFlags.ERR_WATER_CRITICAL = true;
+        errorFlags.lastErrorMessage   = "Water level critical — pump and valves locked";
+        Serial.println("[systemController] ERR_WATER_CRITICAL latched — tank empty");
+    }
+
     // 2. Critical fault handling — takes priority over everything
     if (errorFlags.EMERGENCY_STOP) {
         emergency_stop_all();

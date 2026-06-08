@@ -42,3 +42,16 @@
 #define CONFIG_BAK2_PATH       "/config.bak2"
 #define CONFIG_BAK3_PATH       "/config.bak3"
 #define PLANTS_PATH            "/plants.json"
+
+// ── Web Input Bounds (config validation) ─────────────────────────────────────
+// Guard rails for values written via /saveConfig and /importConfig so a bad
+// client or corrupt import cannot, e.g., make the pump run effectively forever.
+#define ROOF_OPEN_MS_MIN           200UL
+#define ROOF_OPEN_MS_MAX         30000UL
+#define ROOF_CLOSE_MS_MIN          500UL
+#define ROOF_CLOSE_MS_MAX        30000UL
+#define IRRIGATE_MS_MIN            500UL
+#define IRRIGATE_MS_MAX         120000UL
+#define IRRIGATE_PAUSE_MS_MAX  3600000UL
+#define SOIL_ADC_RAW_MAX           4095   // 12-bit ADC full scale
+#define MAX_PLANTS                   50   // cap on stored plant entries

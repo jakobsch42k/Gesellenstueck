@@ -58,6 +58,38 @@ static bool parseBody(JsonDocument& doc) {
     return true;
 }
 
+// ── Shared serialization helpers ────────────────────────────────────────────
+
+// Network descriptor: "AP — N client(s)" in AP mode, else the joined SSID.
+static String netDesc() {
+    if (WiFi.getMode() == WIFI_AP)
+        return "AP — " + String(WiFi.softAPgetStationNum()) + " client(s)";
+    return WiFi.SSID();
+}
+
+static String netIP() {
+    return (WiFi.getMode() == WIFI_AP) ? WiFi.softAPIP().toString()
+                                       : WiFi.localIP().toString();
+}
+
+// Full error-flag set, shared by /data.json and /systemStatus.
+static void addErrorFlags(JsonDocument& doc) {
+    doc["ERR_ROOF_TIMEOUT"]   = errFlags->ERR_ROOF_TIMEOUT;
+    doc["ERR_WATER_CRITICAL"] = errFlags->ERR_WATER_CRITICAL;
+    doc["ERR_FS_MOUNT"]       = errFlags->ERR_FS_MOUNT;
+    doc["EMERGENCY_STOP"]     = errFlags->EMERGENCY_STOP;
+    doc["MAINTENANCE_MODE"]   = errFlags->MAINTENANCE_MODE;
+    doc["ERR_SENSOR_BME"]     = errFlags->ERR_SENSOR_BME;
+    doc["ERR_SENSOR_BH"]      = errFlags->ERR_SENSOR_BH;
+    doc["lastErrorMessage"]   = errFlags->lastErrorMessage;
+}
+
+// 302 redirect to the AP root — drives captive-portal popups on all OSes.
+static void sendCaptiveRedirect() {
+    server.sendHeader("Location", "http://" + WiFi.softAPIP().toString() + "/");
+    server.send(302, "text/plain", "");
+}
+
 // ── Config validation & update ────────────────────────────────────────────────
 
 static bool validateConfig(const JsonDocument& doc, String& errMsg) {
@@ -88,6 +120,33 @@ static bool validateConfig(const JsonDocument& doc, String& errMsg) {
             int v = p[h];
             if (v < 0 || v > 100) { errMsg = "lightProfile values must be 0-100"; return false; }
         }
+    }
+    if (!doc["roofOpenDuration_ms"].isNull()) {
+        unsigned long v = doc["roofOpenDuration_ms"];
+        if (v < ROOF_OPEN_MS_MIN || v > ROOF_OPEN_MS_MAX) { errMsg = "roofOpenDuration_ms out of range"; return false; }
+    }
+    if (!doc["roofCloseTimeout_ms"].isNull()) {
+        unsigned long v = doc["roofCloseTimeout_ms"];
+        if (v < ROOF_CLOSE_MS_MIN || v > ROOF_CLOSE_MS_MAX) { errMsg = "roofCloseTimeout_ms out of range"; return false; }
+    }
+    if (!doc["irrigationDuration_ms"].isNull()) {
+        unsigned long v = doc["irrigationDuration_ms"];
+        if (v < IRRIGATE_MS_MIN || v > IRRIGATE_MS_MAX) { errMsg = "irrigationDuration_ms out of range"; return false; }
+    }
+    if (!doc["irrigationPause_ms"].isNull()) {
+        unsigned long v = doc["irrigationPause_ms"];
+        if (v > IRRIGATE_PAUSE_MS_MAX) { errMsg = "irrigationPause_ms out of range"; return false; }
+    }
+    // Soil calibration: ADC counts in range, and dry must read higher than wet
+    // (map() in sensors.cpp expects dry > wet). Fall back to current config for
+    // whichever value the partial update omits.
+    if (!doc["soilDryValue"].isNull() || !doc["soilWetValue"].isNull()) {
+        int dry = doc["soilDryValue"] | cfg->soilDryValue;
+        int wet = doc["soilWetValue"] | cfg->soilWetValue;
+        if (dry < 0 || dry > SOIL_ADC_RAW_MAX || wet < 0 || wet > SOIL_ADC_RAW_MAX) {
+            errMsg = "soil calibration out of range (0-4095)"; return false;
+        }
+        if (dry <= wet) { errMsg = "soilDryValue must exceed soilWetValue"; return false; }
     }
     return true;
 }
@@ -132,14 +191,7 @@ static void handleData() {
     const char* irrStr[] = {"IDLE", "PUMPING", "PAUSING"};
     doc["pumpStatus"]    = irrStr[(int)irrigation_getState()];
 
-    doc["ERR_ROOF_TIMEOUT"]   = errFlags->ERR_ROOF_TIMEOUT;
-    doc["ERR_WATER_CRITICAL"] = errFlags->ERR_WATER_CRITICAL;
-    doc["ERR_FS_MOUNT"]       = errFlags->ERR_FS_MOUNT;
-    doc["EMERGENCY_STOP"]     = errFlags->EMERGENCY_STOP;
-    doc["MAINTENANCE_MODE"]   = errFlags->MAINTENANCE_MODE;
-    doc["ERR_SENSOR_BME"]     = errFlags->ERR_SENSOR_BME;
-    doc["ERR_SENSOR_BH"]      = errFlags->ERR_SENSOR_BH;
-    doc["lastErrorMessage"]   = errFlags->lastErrorMessage;
+    addErrorFlags(doc);
 
     String json;
     serializeJson(doc, json);
@@ -158,21 +210,10 @@ static void handleSystemStatus() {
     doc["freeHeap"] = ESP.getFreeHeap();
     doc["cpuFreq"]  = ESP.getCpuFreqMHz();
 
-    if (WiFi.getMode() == WIFI_AP) {
-        doc["wifi"] = "AP — " + String(WiFi.softAPgetStationNum()) + " client(s)";
-        doc["ip"]   = WiFi.softAPIP().toString();
-    } else {
-        doc["wifi"] = WiFi.SSID();
-        doc["ip"]   = WiFi.localIP().toString();
-    }
+    doc["wifi"] = netDesc();
+    doc["ip"]   = netIP();
 
-    doc["ERR_ROOF_TIMEOUT"]   = errFlags->ERR_ROOF_TIMEOUT;
-    doc["ERR_WATER_CRITICAL"] = errFlags->ERR_WATER_CRITICAL;
-    doc["ERR_FS_MOUNT"]       = errFlags->ERR_FS_MOUNT;
-    doc["EMERGENCY_STOP"]     = errFlags->EMERGENCY_STOP;
-    doc["ERR_SENSOR_BME"]     = errFlags->ERR_SENSOR_BME;
-    doc["ERR_SENSOR_BH"]      = errFlags->ERR_SENSOR_BH;
-    doc["lastErrorMessage"]   = errFlags->lastErrorMessage;
+    addErrorFlags(doc);
 
     String json;
     serializeJson(doc, json);
@@ -242,6 +283,11 @@ static void handleAddPlant() {
     loadPlants(doc);
     JsonArray arr = doc.as<JsonArray>();
     if (!arr) arr = doc.to<JsonArray>();
+
+    if (arr.size() >= MAX_PLANTS) {
+        server.send(507, "application/json", "{\"error\":\"plant list full\"}");
+        return;
+    }
 
     String newName = newPlant["name"].as<String>();
     for (JsonVariant p : arr) {
@@ -328,9 +374,6 @@ static void handleDiagnostics() {
     doc["humidity"]    = liveData->humPerc;
     doc["light"]       = liveData->lux;
 
-    doc["waterLow"]      = liveData->waterLow      ? "OK" : "Low";
-    doc["waterCritical"] = liveData->waterCritical ? "OK" : "CRITICAL";
-
     // System states
     doc["roofContact"] = liveData->roofClosed ? "Closed" : "Open";
 
@@ -352,10 +395,7 @@ static void handleDiagnostics() {
     doc["errorFlags"] = flags.length() ? flags : "None";
 
     // System information
-    if (WiFi.getMode() == WIFI_AP)
-        doc["commStatus"] = "AP — " + String(WiFi.softAPgetStationNum()) + " client(s), IP " + WiFi.softAPIP().toString();
-    else
-        doc["commStatus"] = WiFi.SSID() + " — " + WiFi.localIP().toString();
+    doc["commStatus"] = netDesc() + " — IP " + netIP();
 
     const char* roofStr[] = {"IDLE", "OPENING", "OPEN", "CLOSING", "CLOSED", "ERROR"};
     doc["roofState"] = roofStr[(int)roofControl_getState()];
@@ -437,8 +477,7 @@ static void handleAckErrors() {
 static void handleNotFound() {
     if (!serveFile(server.uri())) {
         // Redirect unknown paths to the main page — triggers captive portal on all OSes
-        server.sendHeader("Location", "http://" + WiFi.softAPIP().toString() + "/");
-        server.send(302, "text/plain", "");
+        sendCaptiveRedirect();
     }
 }
 
@@ -458,18 +497,14 @@ void webBackend_init(const LiveData& data, Config& config, ErrorFlags& err) {
     httpsRedirect.begin();
 
     // OS captive-portal detection probes — all redirect so the browser popup triggers
-    auto captiveRedirect = []() {
-        server.sendHeader("Location", "http://" + WiFi.softAPIP().toString() + "/");
-        server.send(302, "text/plain", "");
-    };
-    server.on("/generate_204",        HTTP_GET, captiveRedirect); // Android
-    server.on("/204",                 HTTP_GET, captiveRedirect); // Android (alternate)
-    server.on("/hotspot-detect.html", HTTP_GET, captiveRedirect); // iOS / macOS
-    server.on("/canonical.html",      HTTP_GET, captiveRedirect); // iOS (alternate)
-    server.on("/connecttest.txt",     HTTP_GET, captiveRedirect); // Windows
-    server.on("/redirect",            HTTP_GET, captiveRedirect); // Windows
-    server.on("/ncsi.txt",            HTTP_GET, captiveRedirect); // Windows (older)
-    server.on("/success.html",        HTTP_GET, captiveRedirect); // macOS (alternate)
+    server.on("/generate_204",        HTTP_GET, sendCaptiveRedirect); // Android
+    server.on("/204",                 HTTP_GET, sendCaptiveRedirect); // Android (alternate)
+    server.on("/hotspot-detect.html", HTTP_GET, sendCaptiveRedirect); // iOS / macOS
+    server.on("/canonical.html",      HTTP_GET, sendCaptiveRedirect); // iOS (alternate)
+    server.on("/connecttest.txt",     HTTP_GET, sendCaptiveRedirect); // Windows
+    server.on("/redirect",            HTTP_GET, sendCaptiveRedirect); // Windows
+    server.on("/ncsi.txt",            HTTP_GET, sendCaptiveRedirect); // Windows (older)
+    server.on("/success.html",        HTTP_GET, sendCaptiveRedirect); // macOS (alternate)
 
     server.on("/",            HTTP_GET, []() { serveFile("/index.html"); });
     server.on("/index.html",  HTTP_GET, []() { serveFile("/index.html"); });

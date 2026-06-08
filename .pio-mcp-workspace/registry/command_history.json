@@ -1,0 +1,16 @@
+[
+  {
+    "id": "eee4c474-dd60-40df-aba6-0b6200ba6a58",
+    "commandDesc": "MCP Tool: build_project",
+    "timestamp": 1780925996580,
+    "status": "error",
+    "tasks": [],
+    "mcpRequest": {
+      "projectDir": "C:\\Users\\Jakob\\Documents\\PlatformIO\\Projects\\Gesellenstueck"
+    },
+    "mcpToolName": "build_project",
+    "mcpResponse": {
+      "error": "Failed to build project: Error: spawn pio ENOENT"
+    }
+  }
+]

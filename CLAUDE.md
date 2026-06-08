@@ -78,13 +78,13 @@ Each module takes `LiveData*`, `Config*`, `ErrorFlags*` in its `init()` and chec
 
 **Safety:** `SystemController::run()` checks critical faults before calling any `_update()`. Actuator calls in error paths immediately stop motors/valves.
 
-**Manual commands** (via `POST /manual {"cmd": "...", "val": N}`):`pump_on`, `pump_off`, `valve_open`/`valve_close` (val=1–5), `valve_closeAll`, `roof_open` (1.5 s pulse), `roof_close`, `roof_stop`, `led_pwm` (val=0–255), `emergency_stop`, `maintenance_on`, `maintenance_off`.
+**Manual commands** (via `POST /manual {"command": "...", "value": N}`):`pump_on`, `pump_off`, `valve_open`/`valve_close` (value=1–5), `valve_closeAll`, `roof_open` (1.5 s pulse), `roof_close`, `roof_stop`, `led_pwm` (value=0–255), `emergency_stop`, `maintenance_on`, `maintenance_off`.
 
 ### Web Backend
 
-`src/webBackend.cpp` — AsyncWebServer on port 80. Key routes:
+`src/webBackend.cpp` — synchronous `WebServer` (ESP32 core) on port 80. Key routes:
 
-- `GET /data` → JSON live sensor + control state (tempC, humPerc, lux, luxSmoothed, soilPerc[5], waterLow, waterCritical, roofClosed, timeOfDay, pumpStatus, all error flags, lastErrorMessage)
+- `GET /data.json` → JSON live sensor + control state (tempC, humPerc, lux, luxSmoothed, soilPerc[5], waterLow, waterCritical [bool, true = sufficient], roofClosed, timeOfDay, pumpStatus, MAINTENANCE_MODE, ERR_ROOF_TIMEOUT, ERR_WATER_CRITICAL, ERR_FS_MOUNT, EMERGENCY_STOP, ERR_SENSOR_BME, ERR_SENSOR_BH, lastErrorMessage)
 - `GET /systemStatus` → uptime, free heap, CPU freq, WiFi client count
 - `GET /config` / `POST /saveConfig` / `POST /importConfig` → config read/write (saveConfig accepts partial JSON; importConfig replaces entire config)
 - `POST /manual` → manual actuator commands
@@ -92,7 +92,7 @@ Each module takes `LiveData*`, `Config*`, `ErrorFlags*` in its `init()` and chec
 
 Captive portal: DNS redirects all queries to 192.168.4.1; HTTP 302s for iOS/Android/Windows probe URLs. Port 443 listener handles HTTPS probes.
 
-Web UI assets (`data/`) are served from LittleFS. `script.js` polls `/data` on an interval and updates the dashboard. `data/plants.json` exists but is currently unused by firmware (reserved for a future plant reference UI).
+Web UI assets (`data/`) are served from LittleFS. `script.js` polls `/data.json` on an interval and updates the dashboard. `data/plants.json` exists but is currently unused by firmware (reserved for a future plant reference UI).
 
 ### File System (LittleFS)
 
@@ -160,7 +160,7 @@ Rules:
 ## Token Efficiency (Project-Specific)
 
 - **`shared.h` is the data model source of truth.** Grep it for struct fields (LiveData, Config, ErrorFlags) instead of reading multiple module files to understand the data model.
-- **`/data` endpoint keys are listed in this file** (see Web Backend section). Don't read `webBackend.cpp` to rediscover them — only open that file when actually editing the endpoint.
+- **`/data.json` endpoint keys are listed in this file** (see Web Backend section). Don't read `webBackend.cpp` to rediscover them — only open that file when actually editing the endpoint.
 
 ## Known Issues & Failed Attempts
 
