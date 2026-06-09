@@ -147,7 +147,9 @@ function pushHist(d) {
 const PLANT_KEY = 'hb_bedplants';
 let config = { moisture: [40, 50, 60, 70, 80], luxTarget: 800, tempTarget: 24, tempHyst: 2, lightProfile: new Array(24).fill(50) };
 let plants = [];
-let bedPlants = JSON.parse(localStorage.getItem(PLANT_KEY) || 'null') || ['', '', '', '', ''];
+let bedPlants;
+try { bedPlants = JSON.parse(localStorage.getItem(PLANT_KEY) || 'null') || ['', '', '', '', '']; }
+catch (e) { bedPlants = ['', '', '', '', '']; }
 let maintenance = false, lastData = {}, lastDiag = {};
 let firstPollDone = false;
 const valveState = [false, false, false, false, false];
@@ -172,7 +174,7 @@ function renderDash() {
     const roof = (lastDiag.roofState || 'IDLE').toUpperCase();
     const ledOn = (lastDiag.ledPWM || 0) > 0;
     const chips = [
-      ['Roof', roof === 'ERROR' ? 'err' : 'on', roof],
+      ['Roof', roof === 'ERROR' ? 'err' : 'on', esc(roof)],
       ['Pump', d.pumpStatus && !/idle/i.test(d.pumpStatus) ? 'on' : '', d.pumpStatus && !/idle/i.test(d.pumpStatus) ? 'Run' : 'Idle'],
       ['Light', ledOn ? 'on' : '', ledOn ? Math.round((lastDiag.ledPWM / 255) * 100) + '%' : 'Off'],
       ['Water', !d.waterCritical ? 'err' : !d.waterLow ? 'warn' : 'on', !d.waterCritical ? 'Crit' : !d.waterLow ? 'Low' : 'OK'],
@@ -214,12 +216,16 @@ function renderDash() {
       `</div><div class="skel" style="height:7px;margin-top:8px;border-radius:100px"></div></div></div>`
     ).join('');
   } else {
-    $('#dash-beds').innerHTML = (d.soilPerc || []).map((m, i) => {
-      const target = config.moisture[i];
-      const low = m < target - 8;
-      const name = bedPlants[i] || ('Bed ' + (i + 1));
-      return bedRow(i, name, m, target, low);
-    }).join('');
+    // sort beds by urgency: driest relative to target first ("Bed N" labels keep identity clear)
+    $('#dash-beds').innerHTML = (d.soilPerc || [])
+      .map((m, i) => ({ m, i }))
+      .sort((a, b) => (a.m - config.moisture[a.i]) - (b.m - config.moisture[b.i]))
+      .map(({ m, i }) => {
+        const target = config.moisture[i];
+        const low = m < target - 8;
+        const name = bedPlants[i] || ('Bed ' + (i + 1));
+        return bedRow(i, name, m, target, low);
+      }).join('');
   }
 }
 function avgSeries() {
@@ -264,7 +270,7 @@ function renderDiag() {
   const head = $('#soil-raw').querySelector('.note');
   $('#soil-raw').innerHTML = (raw.length ? raw : (d.soilPerc || []).map(() => '—')).map((rv, i) =>
     `<div class="kv"><span class="k">Bed ${i + 1}${bedPlants[i] ? ' · ' + esc(bedPlants[i]) : ''}</span>` +
-    `<span class="v">${rv} <span class="muted">raw → ${(d.soilPerc || [])[i] != null ? d.soilPerc[i] + '%' : '—'}</span></span></div>`).join('') +
+    `<span class="v">${esc(rv)} <span class="muted">raw → ${(d.soilPerc || [])[i] != null ? esc(d.soilPerc[i]) + '%' : '—'}</span></span></div>`).join('') +
     (head ? head.outerHTML : '');
 
   // light controller
@@ -289,11 +295,28 @@ function renderSystem(sys) {
   $('#sys-mode').textContent = maintenance ? 'Maintenance' : 'Automatic';
   $('#sys-water').textContent = !lastData.waterCritical ? 'Critical' : !lastData.waterLow ? 'Low' : 'Normal';
   const ef = (lastDiag.errorFlags || '').trim();
-  $('#sys-fault').textContent = (!ef || /^none$/i.test(ef)) ? 'None' : ef;
+  $('#sys-fault').textContent = (!ef || /^none$/i.test(ef)) ? 'None' : humanizeFlags(ef);
   $('#sys-time-status').textContent = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 }
 
 /* ---- helpers ---------------------------------------------- */
+/* firmware flag → plain language (matches errorFlags strings in webBackend.cpp) */
+const FLAG_TEXT = {
+  EMERGENCY_STOP: 'Emergency stop active',
+  WATER_CRITICAL: 'Reservoir empty — pump locked',
+  ROOF_TIMEOUT: 'Roof did not close in time — check for obstruction',
+  FS_MOUNT: 'Storage error — config may not persist',
+  NO_BME: 'Climate sensor not responding',
+  NO_BH: 'Light sensor offline — light runs without feedback',
+};
+function humanizeFlags(ef) {
+  return ef.split(',').map((f) => {
+    f = f.trim();
+    const soil = f.match(/^SOIL(\d)$/);
+    if (soil) return 'Soil sensor ' + soil[1] + ' reading implausible';
+    return FLAG_TEXT[f] || f;
+  }).join(' · ');
+}
 function fmt(v, dec) { return (typeof v === 'number' && !isNaN(v)) ? v.toFixed(dec) : '—'; }
 function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 function boolTxt(v, t, f) { return (v === true || v === 'true' || v === 1) ? t : f; }
@@ -309,9 +332,21 @@ function setOnline(ok) {
     $('#hdr-mode').className = 'mode-badge offline';
   }
 }
+/* fetch with 5 s timeout — a stalled ESP32 must not block the poll loop */
+function fetchT(url, opts) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 5000);
+  return fetch(url, Object.assign({}, opts, { signal: ctrl.signal })).finally(() => clearTimeout(t));
+}
+let polling = false;
 async function poll() {
+  if (polling) return; // previous round still in flight
+  polling = true;
+  try { await pollOnce(); } finally { polling = false; }
+}
+async function pollOnce() {
   try {
-    const d = await fetch('/data.json').then((r) => r.json());
+    const d = await fetchT('/data.json').then((r) => r.json());
     lastData = d;
     maintenance = !!d.MAINTENANCE_MODE;
     if (!firstPollDone) {
@@ -326,8 +361,8 @@ async function poll() {
     setOnline(true);
   } catch (e) { setOnline(false); }
 
-  try { lastDiag = await fetch('/diagnostics').then((r) => r.json()); } catch (e) {}
-  try { renderSystem(await fetch('/systemStatus').then((r) => r.json())); } catch (e) { renderSystem(null); }
+  try { lastDiag = await fetchT('/diagnostics').then((r) => r.json()); } catch (e) {}
+  try { renderSystem(await fetchT('/systemStatus').then((r) => r.json())); } catch (e) { renderSystem(null); }
 
   const ef = (lastDiag.errorFlags || '').trim();
   $('#led-fault').className = 'led' + ((ef && !/^none$/i.test(ef)) ? ' err' : '');
@@ -399,7 +434,7 @@ function buildBeds() {
         <div class="swatch" style="width:38px;height:38px;border-radius:10px;font-size:17px;background:${swatchColor(name || 'Bed')}">${(name[0] || (i + 1)).toString().toUpperCase()}</div>
         <div style="flex:1"><div class="b-id">Bed ${i + 1}</div>
           <div style="font-family:var(--serif);font-size:19px;font-weight:500;line-height:1.1">${esc(name || 'Unassigned')}</div></div>
-        <div style="text-align:right"><div class="readout" style="font-size:24px"><span id="pb-val-${i}">—</span><span class="u">%</span></div><div class="note">now</div></div>
+        <div style="text-align:right"><div class="readout readout-lg"><span id="pb-val-${i}">—</span><span class="u">%</span></div><div class="note">now</div></div>
       </div>
       <div class="moist-track" style="margin-bottom:12px"><div class="moist-fill" id="pb-fill-${i}" style="width:0%"></div>
         <div class="moist-target" id="pb-tgt-${i}" style="left:${target}%"></div></div>
@@ -457,7 +492,11 @@ function buildLightProfile() {
   });
 }
 
+let savingConfig = false;
 async function saveConfig() {
+  if (savingConfig) return;
+  savingConfig = true;
+  const btn = $('#save-config-btn'); btn.disabled = true;
   const body = {
     moisture: config.moisture.map((v) => Math.round(v)),
     luxTarget: Math.round(config.luxTarget),
@@ -465,10 +504,11 @@ async function saveConfig() {
     lightProfile: config.lightProfile.map((v) => clamp(Math.round(v), 0, 100)),
   };
   try {
-    const r = await fetch('/saveConfig', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const r = await fetchT('/saveConfig', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     if (!r.ok) throw new Error(r.status);
     toast('Configuration saved');
   } catch (e) { toast('Save failed — check connection', true); }
+  finally { savingConfig = false; btn.disabled = false; }
 }
 
 /* ============================================================
@@ -493,11 +533,15 @@ function renderPlantLib() {
   initIcons($('#plant-list'));
   $$('#plant-list [data-del]').forEach((b) => b.addEventListener('click', () => deletePlant(b.dataset.del)));
 }
+let addingPlant = false;
 async function addPlant() {
+  if (addingPlant) return;
   const name = $('#new-plant-name').value.trim();
   const target = +$('#new-plant-target').value;
   if (!name) return toast('Enter a plant name', true);
   if (plants.find((p) => p.name.toLowerCase() === name.toLowerCase())) return toast('Plant already exists', true);
+  addingPlant = true;
+  const btn = $('#add-plant-btn'); btn.disabled = true;
   try {
     const r = await fetch('/addPlant', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, targetMoisture: target }) });
     if (r.status === 409) throw new Error('exists');
@@ -510,6 +554,7 @@ async function addPlant() {
     plants.push({ name, targetMoisture: target }); renderPlantLib(); buildBeds();
     toast('Added (offline — not yet on controller)', true);
   }
+  finally { addingPlant = false; btn.disabled = false; }
 }
 async function deletePlant(name) {
   if (!confirm(`Delete plant “${name}”?`)) return;
@@ -601,7 +646,9 @@ function init() {
   // time
   $('#set-time-btn').addEventListener('click', () => {
     const v = $('#time-input').value; if (!v) return toast('Pick a time', true);
-    const dt = new Date(v); const ts = dt.getHours() * 3600 + dt.getMinutes() * 60 + dt.getSeconds();
+    const dt = new Date(v);
+    if (isNaN(dt.getTime())) return toast('Invalid time', true);
+    const ts = dt.getHours() * 3600 + dt.getMinutes() * 60 + dt.getSeconds();
     fetch('/setTime', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ timestamp: ts } )}).then(() => toast('Time synced')).catch(() => toast('Sync failed', true));
   });
 

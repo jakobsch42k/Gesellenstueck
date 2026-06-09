@@ -191,13 +191,22 @@ bool loadPlants(JsonDocument& doc) {
 }
 
 bool savePlants(const JsonDocument& doc) {
-    File f = LittleFS.open(PLANTS_PATH, "w");
-    if (!f) {
-        Serial.println("[fileManager] ERROR: could not open plants.json for writing");
+    // Write to temp file first, then atomic rename — same pattern as saveConfig.
+    // Prevents plants.json corruption on power loss mid-write.
+    const char* tmpPath = "/plants.tmp";
+    File tmp = LittleFS.open(tmpPath, "w");
+    if (!tmp) {
+        Serial.println("[fileManager] ERROR: could not open plants.tmp for writing");
         return false;
     }
-    serializeJsonPretty(doc, f);
-    f.close();
+    serializeJsonPretty(doc, tmp);
+    tmp.close();
+
+    LittleFS.remove(PLANTS_PATH);
+    if (!LittleFS.rename(tmpPath, PLANTS_PATH)) {
+        Serial.println("[fileManager] ERROR: rename plants.tmp -> plants.json failed");
+        return false;
+    }
     Serial.println("[fileManager] plants saved OK");
     return true;
 }

@@ -278,6 +278,10 @@ static void handleAddPlant() {
         server.send(400, "application/json", "{\"error\":\"name required\"}");
         return;
     }
+    if (newPlant["name"].as<String>().length() > 20) {  // matches frontend maxlength
+        server.send(400, "application/json", "{\"error\":\"name too long (max 20)\"}");
+        return;
+    }
 
     JsonDocument doc;
     loadPlants(doc);
@@ -359,6 +363,21 @@ static void handleManual() {
     String cmd = doc["command"].as<String>();
     int val    = doc["value"] | 0;
 
+    // Allowlist: reject unknown commands before they reach the controller
+    static const char* const ALLOWED_COMMANDS[] = {
+        "pump_on", "pump_off", "valve_open", "valve_close", "valve_closeAll",
+        "roof_open", "roof_close", "roof_stop", "led_pwm",
+        "emergency_stop", "maintenance_on", "maintenance_off"
+    };
+    bool allowed = false;
+    for (const char* c : ALLOWED_COMMANDS) {
+        if (cmd == c) { allowed = true; break; }
+    }
+    if (!allowed) {
+        server.send(400, "application/json", "{\"error\":\"unknown command\"}");
+        return;
+    }
+
     if (_manualCtrlCb) _manualCtrlCb(cmd, val);
     server.send(200, "application/json", "{\"status\":\"ok\"}");
 }
@@ -422,6 +441,10 @@ static void handleSetTime() {
     }
 
     unsigned long ts = doc["timestamp"].as<unsigned long>();
+    if (ts >= 86400UL) {  // seconds-of-day: 0..86399
+        server.send(400, "application/json", "{\"error\":\"timestamp out of range\"}");
+        return;
+    }
     if (_setTimeCb) _setTimeCb(ts);
     server.send(200, "application/json", "{\"status\":\"ok\"}");
 }

@@ -2,9 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#F1EBDD" />
   <title>Hochbeet</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%234E8A5A' d='M5 19c0-9 6-14 14-14 0 9-5 14-14 14Z'/%3E%3C/svg%3E" />
   <script>
     /* set theme before first paint — no flash */
     (function () {
@@ -66,21 +67,21 @@
         <div class="chips" id="dash-chips"></div>
         <div class="grid-2" id="dash-metrics"></div>
         <div class="card">
-          <div class="row between" style="margin-bottom:10px">
+          <div class="row between mb10">
             <span class="card-h"><svg class="ic" data-ic="temp"></svg> Temperature · session trend</span>
             <span class="note" id="temp-target-note">target —</span>
           </div>
-          <div id="chart-temp" style="height:116px"></div>
+          <div id="chart-temp" class="chart-t"></div>
         </div>
         <div class="card">
-          <div class="row between" style="margin-bottom:10px">
+          <div class="row between mb10">
             <span class="card-h"><svg class="ic" data-ic="sun"></svg> Light · session trend</span>
             <span class="note" id="light-note">— lx</span>
           </div>
-          <div id="chart-light" style="height:92px"></div>
+          <div id="chart-light" class="chart-l"></div>
         </div>
         <div class="card">
-          <div class="row between" style="margin-bottom:4px">
+          <div class="row between mb4">
             <span class="card-h"><svg class="ic" data-ic="leaf"></svg> Soil moisture · 5 beds</span>
             <span class="note" id="soil-avg-note">avg —</span>
           </div>
@@ -92,9 +93,9 @@
       <section class="view" id="beds">
         <div class="sec-label">Climate &amp; roof</div>
         <div class="card">
-          <div class="field-label" style="margin-bottom:8px">Target temperature</div>
+          <div class="field-label mb8">Target temperature</div>
           <div class="stepper" id="temp-stepper"></div>
-          <div class="note" id="temp-thresholds" style="margin-top:12px">—</div>
+          <div class="note mt12" id="temp-thresholds">—</div>
         </div>
 
         <div class="sec-label">Planting plan</div>
@@ -103,13 +104,13 @@
         <div class="sec-label">Plant library</div>
         <div class="card" id="plant-lib">
           <div id="plant-list"></div>
-          <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--line)">
-            <div class="field-label" style="margin-bottom:8px">Add a plant</div>
+          <div class="divide">
+            <div class="field-label mb8">Add a plant</div>
             <div class="row" style="gap:8px">
               <input class="txt" id="new-plant-name" style="flex:1.4" placeholder="Name e.g. Strawberry" maxlength="20" />
               <button class="btn primary" id="add-plant-btn" style="flex-shrink:0"><svg class="ic" data-ic="plus"></svg> Add</button>
             </div>
-            <div class="row between" style="margin-top:12px; gap:12px">
+            <div class="row between mt12" style="gap:12px">
               <span class="field-label" id="new-plant-target-lbl" style="margin:0; white-space:nowrap">Target moisture 60%</span>
               <input class="rng" id="new-plant-target" type="range" min="20" max="95" value="60" style="flex:1" />
             </div>
@@ -118,22 +119,22 @@
 
         <div class="sec-label">24-hour light profile</div>
         <div class="card">
-          <div class="row between" style="margin-bottom:12px">
+          <div class="row between mb12">
             <span class="card-h"><svg class="ic" data-ic="sun"></svg> Intensity by hour</span>
             <span class="note">100% = peak</span>
           </div>
           <div id="lp-grid"></div>
-          <div class="row between" style="margin-top:14px; padding-top:14px; border-top:1px solid var(--line); gap:12px">
+          <div class="row between divide" style="gap:12px">
             <div>
               <div class="field-label" style="margin:0">Maximum light</div>
               <div class="note">Lux at 100% intensity</div>
             </div>
             <div style="width:150px; flex-shrink:0" class="stepper" id="lux-stepper"></div>
           </div>
-          <div class="note" style="margin-top:10px">Drag a bar to reshape the day, then save. The controller blends LED output to hit this curve, subtracting daylight the sensor already sees.</div>
+          <div class="note mt10">Drag a bar to reshape the day, then save. The controller blends LED output to hit this curve, subtracting daylight the sensor already sees.</div>
         </div>
 
-        <button class="btn primary full" id="save-config-btn" style="margin-top:4px">Save configuration to controller</button>
+        <button class="btn primary full mt4" id="save-config-btn">Save configuration to controller</button>
         <div class="spacer"></div>
       </section>
 
@@ -167,26 +168,26 @@
         <div class="card">
           <div class="row" style="gap:16px; align-items:center">
             <div class="tank">
-              <div class="tank-fill" id="tank-fill" style="height:78%"></div>
+              <div class="tank-fill" id="tank-fill" style="height:0%"></div>
               <div class="float-line low" data-l="LOW" style="bottom:30%"></div>
               <div class="float-line crit" data-l="CRIT" style="bottom:12%"></div>
             </div>
-            <div style="flex:1">
-              <div class="readout" id="water-state" style="font-size:24px">—</div>
-              <div class="m-name" style="margin-bottom:8px">Reservoir · 2 float switches</div>
+            <div class="grow">
+              <div class="readout readout-lg" id="water-state">—</div>
+              <div class="m-name mb8">Reservoir · 2 float switches</div>
               <div class="chips">
                 <span class="chip on" id="chip-low"><span class="dot"></span>Low float —</span>
                 <span class="chip on" id="chip-crit"><span class="dot"></span>Critical —</span>
               </div>
             </div>
           </div>
-          <div class="note" style="margin-top:12px">No continuous level sensor — only two float switches. Pumping is blocked when the critical float trips.</div>
-          <div class="kv" style="margin-top:4px"><span class="k">Pump</span><span class="v" id="diag-pump">—</span></div>
+          <div class="note mt12">No continuous level sensor — only two float switches. Pumping is blocked when the critical float trips.</div>
+          <div class="kv mt4"><span class="k">Pump</span><span class="v" id="diag-pump">—</span></div>
         </div>
 
         <div class="sec-label">Raw soil sensors (ADC)</div>
         <div class="card" id="soil-raw">
-          <div class="note" style="margin-top:8px">12-bit ADC, 0–4095. Higher raw = drier soil (inverse). Calibrated per probe in firmware.</div>
+          <div class="note mt8">12-bit ADC, 0–4095. Higher raw = drier soil (inverse). Calibrated per probe in firmware.</div>
         </div>
 
         <div class="sec-label">Light controller</div>
@@ -205,9 +206,12 @@
           <button class="btn sm" id="maint-btn">Enable</button>
         </div>
 
+        <button class="btn-emerg" id="emerg-btn"><svg class="ic" data-ic="stop"></svg> Emergency stop</button>
+        <div class="note center mt4">Cuts pump, valves and light, parks the roof. Always available.</div>
+
         <div id="manual-controls">
           <div class="card">
-            <div class="card-h" style="margin-bottom:11px"><svg class="ic" data-ic="roof"></svg> Roof · <span id="roof-state-inline" style="color:var(--ink)">—</span></div>
+            <div class="card-h mb11"><svg class="ic" data-ic="roof"></svg> Roof · <span id="roof-state-inline" style="color:var(--ink)">—</span></div>
             <div class="seg">
               <button class="btn" data-roof="open">Open</button>
               <button class="btn" data-roof="stop">Stop</button>
@@ -215,29 +219,27 @@
             </div>
           </div>
 
-          <div class="card" style="margin-top:var(--gap)">
-            <div class="row between" style="margin-bottom:11px">
+          <div class="card mtg">
+            <div class="row between mb11">
               <span class="card-h"><svg class="ic" data-ic="pump"></svg> Pump &amp; valves</span>
               <button class="btn sm" id="pump-btn">Pump OFF</button>
             </div>
-            <div class="note" style="margin-bottom:10px">Open a valve, then run the pump. Valves close on emergency stop.</div>
+            <div class="note mb10">Open a valve, then run the pump. Valves close on emergency stop.</div>
             <div class="grid-2" id="valve-grid" style="grid-template-columns:repeat(5,1fr); gap:7px"></div>
           </div>
 
-          <div class="card" style="margin-top:var(--gap)">
-            <div class="card-h" style="margin-bottom:11px"><svg class="ic" data-ic="led"></svg> Grow light (manual PWM)</div>
+          <div class="card mtg">
+            <div class="card-h mb11"><svg class="ic" data-ic="led"></svg> Grow light (manual PWM)</div>
             <div class="row" style="gap:14px">
-              <div class="readout" id="led-pct" style="font-size:24px; color:var(--sun); min-width:56px">0<span class="u">%</span></div>
+              <div class="readout readout-lg" id="led-pct" style="color:var(--sun); min-width:56px">0<span class="u">%</span></div>
               <input class="rng" id="led-slider" type="range" min="0" max="255" value="0" style="accent-color:var(--sun)" />
             </div>
-            <button class="btn sm full" id="led-apply" style="margin-top:12px">Apply brightness</button>
+            <button class="btn sm full mt12" id="led-apply">Apply brightness</button>
           </div>
         </div>
 
-        <div class="sec-label">Failsafe</div>
-        <button class="btn-emerg" id="emerg-btn"><svg class="ic" data-ic="stop"></svg> Emergency stop</button>
-        <button class="btn full" id="ack-btn" style="margin-top:8px">Acknowledge &amp; reset errors</button>
-        <div class="note" style="text-align:center; margin-top:4px">Emergency stop cuts pump, valves and light and parks the roof. Always available.</div>
+        <div class="sec-label">Recovery</div>
+        <button class="btn full" id="ack-btn">Acknowledge &amp; reset errors</button>
         <div class="spacer"></div>
       </section>
 
@@ -245,16 +247,16 @@
       <section class="view" id="system">
         <div class="card" style="display:flex; align-items:center; gap:16px">
           <span class="m-ico" style="color:var(--accent); width:30px; height:30px"><svg class="ic" data-ic="clock" style="width:28px;height:28px"></svg></span>
-          <div style="flex:1">
-            <div class="m-name" style="margin-bottom:4px">Controller</div>
+          <div class="grow">
+            <div class="m-name mb4">Controller</div>
             <div style="font-family:var(--serif); font-size:21px; font-weight:500; line-height:1.15">Up <span id="sys-uptime">—</span></div>
-            <div class="note" id="sys-link" style="margin-top:4px">—</div>
+            <div class="note mt4" id="sys-link">—</div>
           </div>
         </div>
 
         <div class="sec-label">Health</div>
         <div class="card">
-          <div class="row between" style="margin-bottom:10px">
+          <div class="row between mb10">
             <span class="card-h"><svg class="ic" data-ic="cpu"></svg> Free heap</span>
             <span class="v" id="sys-heap" style="font-size:13px; font-weight:700">— KB</span>
           </div>
@@ -267,7 +269,7 @@
           <div class="kv"><span class="k">Controller hour</span><span class="v" id="sys-time-status">—</span></div>
           <input class="txt" id="time-input" type="datetime-local" style="margin:10px 0" />
           <button class="btn full" id="set-time-btn">Sync controller to this time</button>
-          <div class="note" style="margin-top:8px">Time is auto-synced from this phone on load. The light profile follows the controller's local hour.</div>
+          <div class="note mt8">Time is auto-synced from this phone on load. The light profile follows the controller's local hour.</div>
         </div>
 
         <div class="sec-label">Network &amp; firmware</div>
