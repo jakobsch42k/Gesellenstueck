@@ -40,8 +40,9 @@ function initIcons(root = document) {
     svg.setAttribute('stroke-width', '1.7');
     svg.setAttribute('stroke-linecap', 'round');
     svg.setAttribute('stroke-linejoin', 'round');
-    svg.style.width = svg.style.width || '100%';
-    svg.style.height = svg.style.height || '100%';
+    /* Size comes from CSS (.ic = 16px, .tab svg = 19px) or per-element
+       inline styles set in the markup. Do NOT force 100% here — it would
+       override those rules (inline beats class) and balloon every icon. */
     const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
     use.setAttribute('href', '#i-' + svg.dataset.ic);
     svg.appendChild(use);

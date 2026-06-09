@@ -133,8 +133,8 @@ void sensors_update(LiveData& data, ErrorFlags& err, const Config& cfg) {
     }
 
     // ── Digital inputs ───────────────────────────────────────────────────────
-    data.waterLow      = digitalRead(WATER_LOW_PIN);      // HIGH = OK
-    data.waterCritical = digitalRead(WATER_CRITICAL_PIN); // HIGH = OK
+    data.waterLow      = !digitalRead(WATER_LOW_PIN);      // ext pull-down; HIGH = closed = empty, LOW = open = sufficient
+    data.waterCritical = !digitalRead(WATER_CRITICAL_PIN); // ext pull-down; HIGH = closed = empty, LOW = open = sufficient
     data.roofClosed = digitalRead(REED_PIN);                 // HIGH = closed
 }
 

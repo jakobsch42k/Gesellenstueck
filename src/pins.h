@@ -13,7 +13,7 @@
 #define SOIL_PIN_5          10   // BM5 – Bed 5
 
 // ── Water Level Sensors (float switch, INPUT_PULLUP) ─────────────────────────
-// LOW = water too low, HIGH = water OK
+// HIGH = water too low, LOW = water OK
 #define WATER_LOW_PIN        2   // BG1 – warning level
 #define WATER_CRITICAL_PIN   1   // BG2 – critical, locks pump
 
