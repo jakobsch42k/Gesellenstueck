@@ -13,7 +13,7 @@ Each file can be executed in its own session — it carries the full problem evi
 
 | ID | Task | Severity | Effort | Depends on | Done |
 |----|------|----------|--------|------------|------|
-| [S1](S1-hardware-watchdog.md) | Hardware watchdog | Critical | S | — | ☐ |
+| [S1](S1-hardware-watchdog.md) | Hardware watchdog | Critical | S | — | ☑ |
 | [S2](S2-fs-fault-actuator-stop.md) | Stop actuators on FS fault | Critical | S | — | ☐ |
 | [S3](S3-bme-staleness-guard.md) | BME280 staleness guard | High | M | — | ☐ |
 | [S4](S4-manual-pump-dry-run-guard.md) | Manual pump dry-run guard | High | S | — | ☐ |

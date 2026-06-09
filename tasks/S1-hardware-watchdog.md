@@ -1,6 +1,6 @@
 # S1: Hardware watchdog
 
-**Severity:** Critical | **Effort:** S | **Depends on:** — | **Status:** open
+**Severity:** Critical | **Effort:** S | **Depends on:** — | **Status:** done (commit pending flash test)
 
 ## Problem
 

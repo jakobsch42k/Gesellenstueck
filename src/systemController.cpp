@@ -8,6 +8,7 @@
 #include "lightManagement.h"
 #include "webBackend.h"
 #include "constants.h"
+#include <esp_task_wdt.h>
 
 void SystemController::init() {
     Serial.begin(115200);
@@ -45,11 +46,19 @@ void SystemController::init() {
         [this](unsigned long ts)    { sensors_setTime(liveData, ts); }
     );
 
+    // 7. Watchdog — last, so slow one-time init steps can't trip it. If the
+    //    loop ever hangs (stuck I2C, held HTTP request), reset instead of
+    //    leaving pump/valves/motor running unattended.
+    esp_task_wdt_init(WDT_TIMEOUT_S, true);
+    esp_task_wdt_add(NULL);
+
     errorFlags.MAINTENANCE_MODE = true;
     Serial.println("[systemController] boot complete — starting in maintenance mode");
 }
 
 void SystemController::run() {
+
+    esp_task_wdt_reset();
 
     // 1. Read all sensors
     sensors_update(liveData, errorFlags, config);

@@ -31,6 +31,11 @@
 #define LUX_EMA_ALPHA               0.15f // EMA weight per sample (≈6-sample window ≈ 700 ms)
 #define LUX_HYSTERESIS                5   // Dead-band for P-controller (lux)
 
+// ── Watchdog ─────────────────────────────────────────────────────────────────
+// Generous: normal loop pass is ms; worst case (importConfig + backup rotation
+// on degraded flash) stays well under this. Do not go below ~3 s.
+#define WDT_TIMEOUT_S                 8
+
 // ── Display ──────────────────────────────────────────────────────────────────
 #define DISPLAY_UPDATE_MS          2000UL // LCD refresh interval
 
