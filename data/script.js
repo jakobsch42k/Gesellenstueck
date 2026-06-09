@@ -149,6 +149,7 @@ let config = { moisture: [40, 50, 60, 70, 80], luxTarget: 800, tempTarget: 24, t
 let plants = [];
 let bedPlants = JSON.parse(localStorage.getItem(PLANT_KEY) || 'null') || ['', '', '', '', ''];
 let maintenance = false, lastData = {}, lastDiag = {};
+let firstPollDone = false;
 const valveState = [false, false, false, false, false];
 let pumpOn = false;
 const swatchColor = (name) => {
@@ -161,20 +162,27 @@ const swatchColor = (name) => {
    ============================================================ */
 function renderDash() {
   const d = lastData;
-  const soilAvg = Array.isArray(d.soilPerc) ? Math.round(d.soilPerc.reduce((a, b) => a + b, 0) / d.soilPerc.length) : '—';
+  const loading = !firstPollDone;
+  const skelSpan = (w, h) => `<span class="skel" style="display:inline-block;width:${w};height:${h};border-radius:3px;vertical-align:middle"></span>`;
+
   // chips
-  const roof = (lastDiag.roofState || 'IDLE').toUpperCase();
-  const ledOn = (lastDiag.ledPWM || 0) > 0;
-  const chips = [
-    ['Roof', roof === 'ERROR' ? 'err' : 'on', roof],
-    ['Pump', d.pumpStatus && !/idle/i.test(d.pumpStatus) ? 'on' : '', d.pumpStatus && !/idle/i.test(d.pumpStatus) ? 'Run' : 'Idle'],
-    ['Light', ledOn ? 'on' : '', ledOn ? Math.round((lastDiag.ledPWM / 255) * 100) + '%' : 'Off'],
-    ['Water', !d.waterCritical ? 'err' : !d.waterLow ? 'warn' : 'on', !d.waterCritical ? 'Crit' : !d.waterLow ? 'Low' : 'OK'],
-  ];
-  $('#dash-chips').innerHTML = chips.map(([l, c, t]) =>
-    `<span class="chip ${c}"><span class="dot"></span>${l} · <strong style="font-weight:700">${t}</strong></span>`).join('');
+  if (loading) {
+    $('#dash-chips').innerHTML = Array(4).fill(`<span class="skel" style="display:inline-block;width:72px;height:26px;border-radius:100px"></span>`).join('');
+  } else {
+    const roof = (lastDiag.roofState || 'IDLE').toUpperCase();
+    const ledOn = (lastDiag.ledPWM || 0) > 0;
+    const chips = [
+      ['Roof', roof === 'ERROR' ? 'err' : 'on', roof],
+      ['Pump', d.pumpStatus && !/idle/i.test(d.pumpStatus) ? 'on' : '', d.pumpStatus && !/idle/i.test(d.pumpStatus) ? 'Run' : 'Idle'],
+      ['Light', ledOn ? 'on' : '', ledOn ? Math.round((lastDiag.ledPWM / 255) * 100) + '%' : 'Off'],
+      ['Water', !d.waterCritical ? 'err' : !d.waterLow ? 'warn' : 'on', !d.waterCritical ? 'Crit' : !d.waterLow ? 'Low' : 'OK'],
+    ];
+    $('#dash-chips').innerHTML = chips.map(([l, c, t]) =>
+      `<span class="chip ${c}"><span class="dot"></span>${l} · <strong style="font-weight:700">${t}</strong></span>`).join('');
+  }
 
   // metrics
+  const soilAvg = Array.isArray(d.soilPerc) ? Math.round(d.soilPerc.reduce((a, b) => a + b, 0) / d.soilPerc.length) : '—';
   const tiles = [
     ['temp', 'temp', 'Temp', fmt(d.tempC, 1), '°C', hist.temp, 'var(--terra)'],
     ['hum', 'drop', 'Humidity', fmt(d.humPerc, 0), '%', hist.hum, 'var(--sky)'],
@@ -184,24 +192,35 @@ function renderDash() {
   $('#dash-metrics').innerHTML = tiles.map(([dom, ic, name, val, u]) =>
     `<div class="metric" data-domain="${dom}"><div class="m-top"><span class="m-name">${name}</span>` +
     `<span class="m-ico"><svg class="ic" data-ic="${ic}"></svg></span></div>` +
-    `<div class="m-val">${val}<span class="u">${u}</span></div><div class="m-spark" id="sp-${dom}"></div></div>`).join('');
+    `<div class="m-val">${loading ? skelSpan('3.2ch', '.85em') : val + '<span class="u">' + u + '</span>'}</div>` +
+    `<div class="m-spark" id="sp-${dom}"></div></div>`).join('');
   initIcons($('#dash-metrics'));
   tiles.forEach(([dom, , , , , series, color]) => spark($('#sp-' + dom), series, color, 30));
 
   // temp + light charts
   $('#temp-target-note').textContent = `target ${config.tempTarget}±${config.tempHyst}°C`;
   areaChart($('#chart-temp'), hist.temp, 'var(--terra)', 116, { lo: config.tempTarget - config.tempHyst, hi: config.tempTarget + config.tempHyst });
-  $('#light-note').textContent = `${fmt(d.lux, 0)} lx now`;
+  $('#light-note').textContent = loading ? '' : `${fmt(d.lux, 0)} lx now`;
   areaChart($('#chart-light'), hist.lux, 'var(--sun)', 92);
 
   // dashboard beds
-  $('#soil-avg-note').textContent = 'avg ' + soilAvg + '%';
-  $('#dash-beds').innerHTML = (d.soilPerc || []).map((m, i) => {
-    const target = config.moisture[i];
-    const low = m < target - 8;
-    const name = bedPlants[i] || ('Bed ' + (i + 1));
-    return bedRow(i, name, m, target, low);
-  }).join('');
+  $('#soil-avg-note').textContent = loading ? '' : 'avg ' + soilAvg + '%';
+  if (loading) {
+    $('#dash-beds').innerHTML = Array(5).fill(0).map(() =>
+      `<div class="bed">` +
+      `<div class="skel" style="width:30px;height:30px;border-radius:8px;flex-shrink:0"></div>` +
+      `<div class="b-main"><div class="b-top">` +
+      `${skelSpan('72px', '13px')} ${skelSpan('28px', '13px')}` +
+      `</div><div class="skel" style="height:7px;margin-top:8px;border-radius:100px"></div></div></div>`
+    ).join('');
+  } else {
+    $('#dash-beds').innerHTML = (d.soilPerc || []).map((m, i) => {
+      const target = config.moisture[i];
+      const low = m < target - 8;
+      const name = bedPlants[i] || ('Bed ' + (i + 1));
+      return bedRow(i, name, m, target, low);
+    }).join('');
+  }
 }
 function avgSeries() {
   const n = Math.min(...hist.soil.map((s) => s.length));
@@ -285,12 +304,20 @@ function setChip(el, cls, txt) { el.className = 'chip ' + cls; el.innerHTML = '<
    ============================================================ */
 function setOnline(ok) {
   $('#led-wifi').className = 'led ' + (ok ? 'on' : 'err');
+  if (!ok && firstPollDone) {
+    $('#hdr-mode').textContent = 'OFFLINE';
+    $('#hdr-mode').className = 'mode-badge offline';
+  }
 }
 async function poll() {
   try {
     const d = await fetch('/data.json').then((r) => r.json());
     lastData = d;
     maintenance = !!d.MAINTENANCE_MODE;
+    if (!firstPollDone) {
+      firstPollDone = true;
+      document.body.removeAttribute('data-loading');
+    }
     pushHist(d);
     $('#hdr-mode').textContent = maintenance ? 'MAINT' : 'AUTO';
     $('#hdr-mode').className = 'mode-badge' + (maintenance ? ' maint' : '');

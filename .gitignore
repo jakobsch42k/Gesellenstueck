@@ -14,8 +14,10 @@ Hochbeet/
 02 - Software/
 HOCHBEET_Projektreferenz.md
 
-# Obsidian-related Claude skills
-.claude/skills/obsidian-markdown/
-.claude/skills/obsidian-cli/
-.claude/skills/obsidian-bases/
-.claude/skills/json-canvas/
+# Claude Code — all skills, agents, and tool artifacts
+.claude/skills/
+.agents/
+.impeccable/
+skills-lock.json
+DESIGN.md
+PRODUCT.md

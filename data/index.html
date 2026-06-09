@@ -12,6 +12,7 @@
       var dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
       var mode = pref === 'auto' ? (dark ? 'dusk' : 'day') : pref;
       document.documentElement.setAttribute('data-mode', mode);
+      document.body.setAttribute('data-loading', '1');
     })();
   </script>
   <link rel="stylesheet" href="style.css" />
