@@ -37,7 +37,7 @@ Each file can be executed in its own session — it carries the full problem evi
 - Config schema migration (new Config field currently wipes user config on version bump)
 - `POST /restoreBackup` endpoint (backend `restoreBackup()` exists in fileManager.cpp but unexposed)
 - mDNS (`greenhouse.local`), SSE/async web server, NTP/RTC time source
-- **AP password is still `"12345678"`** (`src/constants.h:7`) — change before next flash
+- AP password (`src/constants.h:7`) — intentionally simple during testing phase; owner updates it himself later
 
 ## Conventions
 
