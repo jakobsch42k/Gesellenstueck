@@ -6,3 +6,16 @@
 .claude/settings.local.json
 .superpowers/
 docs/
+
+# Obsidian vault (local documentation, not for GitHub)
+.obsidian/
+.claudian/
+Hochbeet/
+02 - Software/
+HOCHBEET_Projektreferenz.md
+
+# Obsidian-related Claude skills
+.claude/skills/obsidian-markdown/
+.claude/skills/obsidian-cli/
+.claude/skills/obsidian-bases/
+.claude/skills/json-canvas/
