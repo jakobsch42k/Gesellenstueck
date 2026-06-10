@@ -7,6 +7,14 @@ static const int VALVE_PINS[5] = {
 
 static const unsigned long BLINK_INTERVAL_MS = 500;
 
+// Logical state, used only to suppress repeated log lines. Critical-fault
+// paths call pump_off()/valve_closeAll() every loop pass (idempotent hardware
+// writes by design) — without this the serial monitor floods. Hardware writes
+// still happen on every call as a safe re-assert.
+static bool pumpRunning      = false;
+static bool valveIsOpen[5]   = {false, false, false, false, false};
+static int  roofDirection    = 0;   // 0 = stopped, 1 = opening, -1 = closing
+
 void actuators_init() {
     // Motor driver standby
     pinMode(MOTOR_STBY, OUTPUT);
@@ -52,7 +60,8 @@ void roof_open(int pwm) {
     digitalWrite(MOTOR_A_IN1, HIGH);
     digitalWrite(MOTOR_A_IN2, LOW);
     analogWrite(MOTOR_A_PWM, pwm);
-    Serial.println("[actuators] roof opening");
+    if (roofDirection != 1) Serial.println("[actuators] roof opening");
+    roofDirection = 1;
 }
 
 void roof_close(int pwm) {
@@ -60,7 +69,8 @@ void roof_close(int pwm) {
     digitalWrite(MOTOR_A_IN1, LOW);
     digitalWrite(MOTOR_A_IN2, HIGH);
     analogWrite(MOTOR_A_PWM, pwm);
-    Serial.println("[actuators] roof closing");
+    if (roofDirection != -1) Serial.println("[actuators] roof closing");
+    roofDirection = -1;
 }
 
 void roof_stop() {
@@ -68,7 +78,8 @@ void roof_stop() {
     digitalWrite(MOTOR_A_IN1, LOW);
     digitalWrite(MOTOR_A_IN2, LOW);
     // Leave STBY HIGH — pump may still be running on channel B
-    Serial.println("[actuators] roof stopped");
+    if (roofDirection != 0) Serial.println("[actuators] roof stopped");
+    roofDirection = 0;
 }
 
 // ── Pump ─────────────────────────────────────────────────────────────────────
@@ -78,14 +89,16 @@ void pump_on(int pwm) {
     digitalWrite(MOTOR_B_IN1, LOW);
     digitalWrite(MOTOR_B_IN2, HIGH);
     analogWrite(MOTOR_B_PWM, pwm);
-    Serial.println("[actuators] pump ON");
+    if (!pumpRunning) Serial.println("[actuators] pump ON");
+    pumpRunning = true;
 }
 
 void pump_off() {
     analogWrite(MOTOR_B_PWM, 0);
     digitalWrite(MOTOR_B_IN1, LOW);
     digitalWrite(MOTOR_B_IN2, LOW);
-    Serial.println("[actuators] pump OFF");
+    if (pumpRunning) Serial.println("[actuators] pump OFF");
+    pumpRunning = false;
 }
 
 // ── Solenoid valves ───────────────────────────────────────────────────────────
@@ -93,20 +106,25 @@ void pump_off() {
 void valve_open(int index) {
     if (index < 0 || index > 4) return;
     digitalWrite(VALVE_PINS[index], HIGH);
-    Serial.println("[actuators] valve " + String(index + 1) + " open");
+    if (!valveIsOpen[index]) Serial.println("[actuators] valve " + String(index + 1) + " open");
+    valveIsOpen[index] = true;
 }
 
 void valve_close(int index) {
     if (index < 0 || index > 4) return;
     digitalWrite(VALVE_PINS[index], LOW);
-    Serial.println("[actuators] valve " + String(index + 1) + " closed");
+    if (valveIsOpen[index]) Serial.println("[actuators] valve " + String(index + 1) + " closed");
+    valveIsOpen[index] = false;
 }
 
 void valve_closeAll() {
+    bool anyWasOpen = false;
     for (int i = 0; i < 5; i++) {
         digitalWrite(VALVE_PINS[i], LOW);
+        anyWasOpen |= valveIsOpen[i];
+        valveIsOpen[i] = false;
     }
-    Serial.println("[actuators] all valves closed");
+    if (anyWasOpen) Serial.println("[actuators] all valves closed");
 }
 
 // ── Grow light ────────────────────────────────────────────────────────────────
@@ -139,6 +157,11 @@ void led_warn_blink() {
 // ── Emergency stop ────────────────────────────────────────────────────────────
 
 void emergency_stop_all() {
+    // Called every loop pass while EMERGENCY_STOP is latched — log only on
+    // the transition from active to stopped, not on every re-assert.
+    bool anythingActive = pumpRunning || roofDirection != 0;
+    for (int i = 0; i < 5; i++) anythingActive |= valveIsOpen[i];
+
     // Motor driver into standby — cuts both channels at hardware level
     digitalWrite(MOTOR_STBY, LOW);
     analogWrite(MOTOR_A_PWM, 0);
@@ -152,5 +175,7 @@ void emergency_stop_all() {
     analogWrite(LED_GROW_PWM, 0);
     led_warn_on();
 
-    Serial.println("[actuators] EMERGENCY STOP — all actuators off");
+    pumpRunning   = false;
+    roofDirection = 0;
+    if (anythingActive) Serial.println("[actuators] EMERGENCY STOP — all actuators off");
 }
