@@ -1,6 +1,6 @@
 # S7: Fix config backup ordering + compact serialization
 
-**Severity:** High | **Effort:** S | **Depends on:** — | **Status:** open
+**Severity:** High | **Effort:** S | **Depends on:** — | **Status:** done
 
 ## Problem
 

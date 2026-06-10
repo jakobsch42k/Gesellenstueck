@@ -108,18 +108,13 @@ bool fileManager_init() {
     return true;
 }
 
-bool loadConfig(Config& cfg) {
-    if (!LittleFS.exists(CONFIG_PATH)) {
-        Serial.println("[fileManager] config.json not found — using defaults");
-        applyDefaults(cfg);
-        return true; // not an error; defaults are valid
-    }
+static FSResult tryLoadConfigFile(const char* path, Config& cfg) {
+    if (!LittleFS.exists(path)) return FS_NOT_FOUND;
 
-    File f = LittleFS.open(CONFIG_PATH, "r");
+    File f = LittleFS.open(path, "r");
     if (!f) {
-        Serial.println("[fileManager] ERROR: could not open config.json");
-        applyDefaults(cfg);
-        return false;
+        Serial.println("[fileManager] ERROR: could not open " + String(path));
+        return FS_NOT_FOUND;
     }
 
     JsonDocument doc;
@@ -127,37 +122,66 @@ bool loadConfig(Config& cfg) {
     f.close();
 
     if (err) {
-        Serial.println("[fileManager] ERROR: config.json parse failed — " + String(err.c_str()));
-        applyDefaults(cfg);
-        return false;
+        Serial.println("[fileManager] ERROR: " + String(path) + " parse failed — " + String(err.c_str()));
+        return FS_PARSE_ERROR;
     }
 
-    if (!jsonToConfig(doc, cfg)) {
-        applyDefaults(cfg);
-        return false;
+    if (!jsonToConfig(doc, cfg)) return FS_CONFIG_INVALID;
+    return FS_OK;
+}
+
+bool loadConfig(Config& cfg) {
+    FSResult primary = tryLoadConfigFile(CONFIG_PATH, cfg);
+    if (primary == FS_OK) {
+        Serial.println("[fileManager] config loaded OK");
+        return true;
     }
 
-    Serial.println("[fileManager] config loaded OK");
-    return true;
+    // Fall back to the newest backup. Covers the power-loss window in
+    // saveConfig between backup rotation (config.json → bak1) and the
+    // tmp → config.json rename, plus ordinary corruption of config.json.
+    FSResult backup = tryLoadConfigFile(CONFIG_BAK1_PATH, cfg);
+    if (backup == FS_OK) {
+        Serial.println("[fileManager] config restored from bak1");
+        return true;
+    }
+
+    if (primary == FS_NOT_FOUND && backup == FS_NOT_FOUND) {
+        Serial.println("[fileManager] config.json not found — using defaults");
+        applyDefaults(cfg);
+        return true; // not an error; fresh filesystem, defaults are valid
+    }
+
+    Serial.println("[fileManager] config and bak1 unusable — using defaults");
+    applyDefaults(cfg);
+    return false;
 }
 
 bool saveConfig(const Config& cfg) {
-    backupConfig(); // rotate backups before overwriting
-
     JsonDocument doc;
     configToJson(cfg, doc);
 
-    // Write to temp file first
+    // 1. Write to temp file first and verify — config.json stays untouched
+    //    until the new data is known-good on flash.
     File tmp = LittleFS.open(CONFIG_TMP_PATH, "w");
     if (!tmp) {
         Serial.println("[fileManager] ERROR: could not open config.tmp for writing");
         return false;
     }
-    serializeJsonPretty(doc, tmp);
+    size_t written = serializeJson(doc, tmp);
     tmp.close();
+    if (written == 0) {
+        Serial.println("[fileManager] ERROR: config.tmp write produced 0 bytes");
+        LittleFS.remove(CONFIG_TMP_PATH);
+        return false;
+    }
 
-    // Atomic rename: tmp → config.json
-    LittleFS.remove(CONFIG_PATH);
+    // 2. Rotate backups only now (moves config.json → bak1). If power dies
+    //    between here and the rename, loadConfig falls back to bak1.
+    backupConfig();
+
+    // 3. Atomic rename: tmp → config.json
+    LittleFS.remove(CONFIG_PATH); // normally a no-op — rotation moved it away
     if (!LittleFS.rename(CONFIG_TMP_PATH, CONFIG_PATH)) {
         Serial.println("[fileManager] ERROR: rename config.tmp -> config.json failed");
         return false;
@@ -199,7 +223,7 @@ bool savePlants(const JsonDocument& doc) {
         Serial.println("[fileManager] ERROR: could not open plants.tmp for writing");
         return false;
     }
-    serializeJsonPretty(doc, tmp);
+    serializeJson(doc, tmp); // compact — nobody reads the file in place
     tmp.close();
 
     LittleFS.remove(PLANTS_PATH);
