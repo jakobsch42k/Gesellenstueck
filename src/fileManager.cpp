@@ -30,6 +30,10 @@ static void applyDefaults(Config& cfg) {
     cfg.soilDryValue          = DEFAULT_SOIL_DRY;
     cfg.soilWetValue          = DEFAULT_SOIL_WET;
 
+    cfg.roofOpenPwm           = DEFAULT_ROOF_OPEN_PWM;
+    cfg.roofClosePwm          = DEFAULT_ROOF_CLOSE_PWM;
+    cfg.pumpPwm               = DEFAULT_PUMP_PWM;
+
     cfg.configVersion         = CONFIG_VERSION;
 }
 
@@ -51,6 +55,11 @@ static void configToJson(const Config& cfg, JsonDocument& doc) {
 
     doc["soilDryValue"]          = cfg.soilDryValue;
     doc["soilWetValue"]          = cfg.soilWetValue;
+
+    doc["roofOpenPwm"]           = cfg.roofOpenPwm;
+    doc["roofClosePwm"]          = cfg.roofClosePwm;
+    doc["pumpPwm"]               = cfg.pumpPwm;
+
     doc["configVersion"]         = cfg.configVersion;
 }
 
@@ -80,6 +89,11 @@ static bool jsonToConfig(const JsonDocument& doc, Config& cfg) {
 
     cfg.soilDryValue          = doc["soilDryValue"]          | DEFAULT_SOIL_DRY;
     cfg.soilWetValue          = doc["soilWetValue"]          | DEFAULT_SOIL_WET;
+
+    cfg.roofOpenPwm           = doc["roofOpenPwm"]           | DEFAULT_ROOF_OPEN_PWM;
+    cfg.roofClosePwm          = doc["roofClosePwm"]          | DEFAULT_ROOF_CLOSE_PWM;
+    cfg.pumpPwm               = doc["pumpPwm"]               | DEFAULT_PUMP_PWM;
+
     cfg.configVersion         = CONFIG_VERSION;
 
     // Load-time clamp: configs written by older firmware or hand-edited may

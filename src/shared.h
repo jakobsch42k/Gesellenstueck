@@ -50,6 +50,11 @@ struct Config {
     int           soilDryValue;           // ADC count for completely dry sensor
     int           soilWetValue;           // ADC count for saturated sensor
 
+    // Actuator PWM — user-tunable; asymmetric roof values are intentional
+    uint8_t       roofOpenPwm;            // Roof motor PWM when opening
+    uint8_t       roofClosePwm;           // Roof motor PWM when closing
+    uint8_t       pumpPwm;                // Pump PWM
+
     // Schema version — used by fileManager for future migrations
     int           configVersion;
 };

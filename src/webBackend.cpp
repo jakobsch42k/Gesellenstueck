@@ -138,6 +138,18 @@ static bool validateConfig(const JsonDocument& doc, String& errMsg) {
         unsigned long v = doc["irrigationPause_ms"];
         if (v < IRRIGATE_PAUSE_MS_MIN || v > IRRIGATE_PAUSE_MS_MAX) { errMsg = "irrigationPause_ms out of range"; return false; }
     }
+    if (!doc["roofOpenPwm"].isNull()) {
+        int v = doc["roofOpenPwm"];
+        if (v < ROOF_OPEN_PWM_MIN || v > ACTUATOR_PWM_MAX) { errMsg = "roofOpenPwm out of range (60-255)"; return false; }
+    }
+    if (!doc["roofClosePwm"].isNull()) {
+        int v = doc["roofClosePwm"];
+        if (v < ROOF_CLOSE_PWM_MIN || v > ACTUATOR_PWM_MAX) { errMsg = "roofClosePwm out of range (40-255)"; return false; }
+    }
+    if (!doc["pumpPwm"].isNull()) {
+        int v = doc["pumpPwm"];
+        if (v < PUMP_PWM_MIN || v > ACTUATOR_PWM_MAX) { errMsg = "pumpPwm out of range (100-255)"; return false; }
+    }
     // Soil calibration: ADC counts in range, and dry must read higher than wet
     // (map() in sensors.cpp expects dry > wet). Fall back to current config for
     // whichever value the partial update omits.
@@ -170,6 +182,9 @@ static void applyJsonToConfig(const JsonDocument& doc, Config& c) {
     if (!doc["irrigationPause_ms"].isNull())    c.irrigationPause_ms    = doc["irrigationPause_ms"];
     if (!doc["soilDryValue"].isNull())          c.soilDryValue          = doc["soilDryValue"];
     if (!doc["soilWetValue"].isNull())          c.soilWetValue          = doc["soilWetValue"];
+    if (!doc["roofOpenPwm"].isNull())           c.roofOpenPwm           = doc["roofOpenPwm"];
+    if (!doc["roofClosePwm"].isNull())          c.roofClosePwm          = doc["roofClosePwm"];
+    if (!doc["pumpPwm"].isNull())               c.pumpPwm               = doc["pumpPwm"];
 }
 
 // ── Route handlers ────────────────────────────────────────────────────────────

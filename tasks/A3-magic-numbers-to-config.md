@@ -1,6 +1,6 @@
 # A3: Magic numbers → constants.h / Config
 
-**Severity:** Medium | **Effort:** M | **Depends on:** ideally A2 (touches same files) | **Status:** open
+**Severity:** Medium | **Effort:** M | **Depends on:** ideally A2 (touches same files) | **Status:** done
 
 ## Problem
 

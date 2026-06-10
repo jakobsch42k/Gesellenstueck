@@ -143,20 +143,20 @@ bool SystemController::handleManualCommand(String cmd, int val) {
             Serial.println("[systemController] manual pump_on refused — water critical");
             return false;
         }
-        actuators.pump_on();
+        actuators.pump_on(config.pumpPwm);
     }
     else if (cmd == "pump_off")       actuators.pump_off();
     else if (cmd == "valve_open"  && val >= 1 && val <= NUM_BEDS) actuators.valve_open(val - 1);
     else if (cmd == "valve_close" && val >= 1 && val <= NUM_BEDS) actuators.valve_close(val - 1);
     else if (cmd == "valve_closeAll") actuators.valve_closeAll();
     else if (cmd == "roof_open") {
-        actuators.roof_open();
+        actuators.roof_open(config.roofOpenPwm);
         roofControl.setState(ROOF_OPENING);
         maintenanceOpenUntil = millis() + MAINTENANCE_OPEN_PULSE_MS;
     }
     else if (cmd == "roof_close") {
         if (!liveData.roofClosed) {
-            actuators.roof_close();
+            actuators.roof_close(config.roofClosePwm);
             roofControl.setState(ROOF_CLOSING);
         } else Serial.println("[systemController] roof_close ignored — reed already closed");
     }

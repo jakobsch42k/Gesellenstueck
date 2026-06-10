@@ -21,6 +21,11 @@ constexpr uint8_t NUM_BEDS = 5;   // Raised beds: soil sensors, valves, moisture
 #define DEFAULT_TEMP_TARGET         25.0f // Target temperature (°C)
 #define DEFAULT_TEMP_HYSTERESIS      1.0f // Hysteresis band (°C)
 #define DEFAULT_LUX_TARGET         180    // Lux measured at 100% LED power (calibration)
+// Asymmetric roof PWM is intentional: opening works against gravity (mechanical
+// advantage needed), closing is assisted by it.
+#define DEFAULT_ROOF_OPEN_PWM      120
+#define DEFAULT_ROOF_CLOSE_PWM      70
+#define DEFAULT_PUMP_PWM           200
 
 // ── Timing Defaults (all in milliseconds) ────────────────────────────────────
 #define DEFAULT_ROOF_OPEN_MS       1500UL  // Motor run time to open roof (auto mode)
@@ -61,7 +66,7 @@ constexpr uint8_t NUM_BEDS = 5;   // Raised beds: soil sensors, valves, moisture
 #define BLINK_INTERVAL_MS           500UL // Warning LED blink half-period
 
 // ── Config File ──────────────────────────────────────────────────────────────
-#define CONFIG_VERSION                1
+#define CONFIG_VERSION                2
 #define CONFIG_PATH            "/config.json"
 #define CONFIG_TMP_PATH        "/config.tmp"
 #define CONFIG_BAK1_PATH       "/config.bak1"
@@ -82,4 +87,9 @@ constexpr uint8_t NUM_BEDS = 5;   // Raised beds: soil sensors, valves, moisture
 #define IRRIGATE_PAUSE_MS_MIN    60000UL  // Floor: pause is the only re-irrigation guard (diffusion time)
 #define IRRIGATE_PAUSE_MS_MAX  3600000UL
 #define SOIL_ADC_RAW_MAX           4095   // 12-bit ADC full scale
+// PWM floors keep the mechanics moving — below these the motor/pump stalls
+#define ROOF_OPEN_PWM_MIN            60
+#define ROOF_CLOSE_PWM_MIN           40
+#define PUMP_PWM_MIN                100
+#define ACTUATOR_PWM_MAX            255
 #define MAX_PLANTS                   50   // cap on stored plant entries

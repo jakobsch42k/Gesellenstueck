@@ -45,7 +45,7 @@ void RoofController::update(const LiveData& data, const Config& cfg, ErrorFlags&
         case ROOF_CLOSED:
             // Safe-open on stale data
             if (bmeStale) {
-                act->roof_open();
+                act->roof_open(cfg.roofOpenPwm);
                 enterState(ROOF_OPENING);
                 Serial.println("[roofControl] stale sensor data — opening roof");
                 break;
@@ -56,7 +56,7 @@ void RoofController::update(const LiveData& data, const Config& cfg, ErrorFlags&
             if (elapsed < ROOF_MIN_DWELL_MS) break;
             // Open if too warm
             if (data.tempC > cfg.tempTarget + cfg.tempHysteresis) {
-                act->roof_open();
+                act->roof_open(cfg.roofOpenPwm);
                 enterState(ROOF_OPENING);
                 Serial.println("[roofControl] too warm — opening roof");
             }
@@ -87,7 +87,7 @@ void RoofController::update(const LiveData& data, const Config& cfg, ErrorFlags&
             if (elapsed < ROOF_MIN_DWELL_MS) break;
             // Close if cool enough
             if (data.tempC < cfg.tempTarget - cfg.tempHysteresis) {
-                act->roof_close();
+                act->roof_close(cfg.roofClosePwm);
                 enterState(ROOF_CLOSING);
                 Serial.println("[roofControl] cool enough — closing roof");
             }

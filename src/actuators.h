@@ -9,13 +9,13 @@ class Actuators {
 public:
     void init();
 
-    // Roof motor (TB6612FNG channel A)
-    void roof_open(int pwm = 120);
-    void roof_close(int pwm = 70);
+    // Roof motor (TB6612FNG channel A) — PWM comes from Config at call sites
+    void roof_open(int pwm);
+    void roof_close(int pwm);
     void roof_stop();
 
     // Pump (TB6612FNG channel B)
-    void pump_on(int pwm = 200);
+    void pump_on(int pwm);
     void pump_off();
 
     // Solenoid valves (index 0–NUM_BEDS-1)

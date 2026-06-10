@@ -43,7 +43,7 @@ void IrrigationController::update(const LiveData& data, const Config& cfg, Error
                 if (data.soilPerc[i] < cfg.moisture[i]) {
                     activeBed = i;
                     act->valve_open(activeBed);
-                    act->pump_on();
+                    act->pump_on(cfg.pumpPwm);
                     enterState(IRRIGATION_PUMPING);
                     Serial.println("[irrigation] bed " + String(i + 1) +
                                    " dry (" + String(data.soilPerc[i]) +
