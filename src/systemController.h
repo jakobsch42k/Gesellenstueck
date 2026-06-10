@@ -5,6 +5,7 @@
 #include "sensors.h"
 #include "roofControl.h"
 #include "irrigation.h"
+#include "lightManagement.h"
 
 class SystemController {
 public:
@@ -19,6 +20,7 @@ private:
     Sensors        sensors;
     RoofController       roofControl;
     IrrigationController irrigation;
+    LightController      lightControl;
     bool           prevRoofClosed      = false;
     unsigned long  maintenanceOpenUntil = 0;
 

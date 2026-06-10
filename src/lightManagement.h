@@ -3,7 +3,25 @@
 #include "shared.h"
 #include "actuators.h"
 
-void lightManagement_init(Actuators& act);
-void lightManagement_update(const LiveData& data, const Config& cfg, const ErrorFlags& err);
-int  lightManagement_getCurrentPWM();
-void lightManagement_resetPWM();
+// Feedforward + PI grow-light controller. Owned by SystemController; the
+// instance lives for the full program duration, so the Actuators pointer
+// stays valid.
+class LightController {
+public:
+    void init(Actuators& actuators);
+    void update(const LiveData& data, const Config& cfg, const ErrorFlags& err);
+    int  getCurrentPWM() const { return currentPWM; }
+    void resetPWM();
+
+private:
+    Actuators*    act         = nullptr;
+    int           targetPWM   = 0;
+    int           currentPWM  = 0;
+    float         integral    = 0.0f;
+    unsigned long lastRamp    = 0;
+    unsigned long lastControl = 0;
+};
+
+// Temporary shim for webBackend until the ControlStatus decoupling step (A2
+// last step): forwards to the SystemController-owned instance.
+int lightManagement_getCurrentPWM();

@@ -36,7 +36,7 @@ void SystemController::init() {
     // 5. Control modules
     roofControl.init(liveData, errorFlags, actuators);
     irrigation.init(actuators);
-    lightManagement_init(actuators);
+    lightControl.init(actuators);
 
     // 6. Web backend — starts WiFi AP and HTTP server
     webBackend_init(liveData, config, errorFlags);
@@ -107,7 +107,7 @@ void SystemController::run() {
     if (!criticalFault) {
         roofControl.update(liveData, config, errorFlags);
         irrigation.update(liveData, config, errorFlags);
-        lightManagement_update(liveData, config, errorFlags);
+        lightControl.update(liveData, config, errorFlags);
     } else if (errorFlags.MAINTENANCE_MODE && liveData.roofClosed && !prevRoofClosed) {
         actuators.roof_stop();
         roofControl.setState(ROOF_CLOSED);
@@ -172,7 +172,7 @@ bool SystemController::handleManualCommand(String cmd, int val) {
     }
     else if (cmd == "maintenance_off") {
         errorFlags.MAINTENANCE_MODE = false;
-        lightManagement_resetPWM();
+        lightControl.resetPWM();
         Serial.println("[systemController] maintenance mode OFF");
     }
     else {
@@ -190,7 +190,7 @@ void SystemController::handleAckErrors() {
     errorFlags.lastErrorMessage   = "";
 
     roofControl.ackError(errorFlags);
-    lightManagement_resetPWM();
+    lightControl.resetPWM();
 
     Serial.println("[systemController] errors acknowledged");
 }
