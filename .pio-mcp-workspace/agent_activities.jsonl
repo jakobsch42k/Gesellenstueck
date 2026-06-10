@@ -1,4 +1,0 @@
-{"timestamp":1780925996579,"toolName":"build_project","args":{"projectDir":"C:\\Users\\Jakob\\Documents\\PlatformIO\\Projects\\Gesellenstueck"},"success":false,"status":"running","activityId":"eee4c474-dd60-40df-aba6-0b6200ba6a58"}
-{"timestamp":1780925996638,"toolName":"build_project","args":{"projectDir":"C:\\Users\\Jakob\\Documents\\PlatformIO\\Projects\\Gesellenstueck"},"success":false,"status":"error","activityId":"eee4c474-dd60-40df-aba6-0b6200ba6a58"}
-{"timestamp":1781007339928,"toolName":"upload_firmware","args":{"projectDir":"C:\\Users\\Jakob\\Documents\\PlatformIO\\Projects\\Gesellenstueck","start_monitor":true},"success":false,"status":"running","activityId":"c0aa5933-d102-4169-81c3-58fb503955f3"}
-{"timestamp":1781007339941,"toolName":"upload_firmware","args":{"projectDir":"C:\\Users\\Jakob\\Documents\\PlatformIO\\Projects\\Gesellenstueck","start_monitor":true},"success":true,"status":"success","activityId":"c0aa5933-d102-4169-81c3-58fb503955f3"}
