@@ -14,7 +14,7 @@ enum FSResult {
 };
 
 static void applyDefaults(Config& cfg) {
-    for (int i = 0; i < 5; i++) cfg.moisture[i] = DEFAULT_MOISTURE;
+    for (int i = 0; i < NUM_BEDS; i++) cfg.moisture[i] = DEFAULT_MOISTURE;
 
     cfg.tempTarget            = DEFAULT_TEMP_TARGET;
     cfg.tempHysteresis        = DEFAULT_TEMP_HYSTERESIS;
@@ -35,7 +35,7 @@ static void applyDefaults(Config& cfg) {
 
 static void configToJson(const Config& cfg, JsonDocument& doc) {
     JsonArray moisture = doc["moisture"].to<JsonArray>();
-    for (int i = 0; i < 5; i++) moisture.add(cfg.moisture[i]);
+    for (int i = 0; i < NUM_BEDS; i++) moisture.add(cfg.moisture[i]);
 
     doc["tempTarget"]            = cfg.tempTarget;
     doc["tempHysteresis"]        = cfg.tempHysteresis;
@@ -62,8 +62,8 @@ static bool jsonToConfig(const JsonDocument& doc, Config& cfg) {
     }
 
     JsonArrayConst moisture = doc["moisture"].as<JsonArrayConst>();
-    if (moisture.size() < 5) return false;
-    for (int i = 0; i < 5; i++) cfg.moisture[i] = moisture[i];
+    if (moisture.size() < NUM_BEDS) return false;
+    for (int i = 0; i < NUM_BEDS; i++) cfg.moisture[i] = moisture[i];
 
     cfg.tempTarget            = doc["tempTarget"]            | DEFAULT_TEMP_TARGET;
     cfg.tempHysteresis        = doc["tempHysteresis"]        | DEFAULT_TEMP_HYSTERESIS;

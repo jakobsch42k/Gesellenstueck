@@ -1,6 +1,10 @@
 #pragma once
 
 #include "pins.h"
+#include <stdint.h>
+
+// ── System Dimensions ────────────────────────────────────────────────────────
+constexpr uint8_t NUM_BEDS = 5;   // Raised beds: soil sensors, valves, moisture targets
 
 // ── WiFi Credentials ─────────────────────────────────────────────────────────
 #define WIFI_SSID                  "Esp-32-Webserver"

@@ -13,7 +13,7 @@ static bool           luxEmaSeeded  = false;
 static unsigned long  lastLuxSample = 0;
 
 // Soil sensor ADC pins in index order
-static const int SOIL_PINS[5] = {
+static const int SOIL_PINS[NUM_BEDS] = {
     SOIL_PIN_1, SOIL_PIN_2, SOIL_PIN_3, SOIL_PIN_4, SOIL_PIN_5
 };
 
@@ -57,7 +57,7 @@ void sensors_init(LiveData& data, ErrorFlags& err, const Config& cfg) {
     data.waterCritical = true;
     data.roofClosed    = false;
 
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < NUM_BEDS; i++) {
         data.soilRaw[i]  = 0;
         data.soilPerc[i] = 0;
     }
@@ -114,7 +114,7 @@ void sensors_update(LiveData& data, ErrorFlags& err, const Config& cfg) {
     }
 
     // ── Soil moisture sensors ────────────────────────────────────────────────
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < NUM_BEDS; i++) {
         long sum = 0;
         for (int s = 0; s < SOIL_ADC_SAMPLES; s++) {
             sum += analogRead(SOIL_PINS[i]);

@@ -95,8 +95,11 @@ static void sendCaptiveRedirect() {
 static bool validateConfig(const JsonDocument& doc, String& errMsg) {
     if (!doc["moisture"].isNull()) {
         JsonArrayConst m = doc["moisture"].as<JsonArrayConst>();
-        if (m.size() < 5) { errMsg = "moisture must have 5 values"; return false; }
-        for (int i = 0; i < 5; i++) {
+        if (m.size() < NUM_BEDS) {
+            errMsg = "moisture must have " + String(NUM_BEDS) + " values";
+            return false;
+        }
+        for (int i = 0; i < NUM_BEDS; i++) {
             int v = m[i];
             if (v < 0 || v > 100) { errMsg = "moisture values must be 0-100"; return false; }
         }
@@ -154,7 +157,7 @@ static bool validateConfig(const JsonDocument& doc, String& errMsg) {
 static void applyJsonToConfig(const JsonDocument& doc, Config& c) {
     if (!doc["moisture"].isNull()) {
         JsonArrayConst m = doc["moisture"].as<JsonArrayConst>();
-        for (int i = 0; i < 5; i++) c.moisture[i] = m[i];
+        for (int i = 0; i < NUM_BEDS; i++) c.moisture[i] = m[i];
     }
     if (!doc["tempTarget"].isNull())            c.tempTarget            = doc["tempTarget"];
     if (!doc["tempHysteresis"].isNull())        c.tempHysteresis        = doc["tempHysteresis"];
@@ -181,7 +184,7 @@ static void handleData() {
     doc["luxSmoothed"] = liveData->luxSmoothed;
 
     JsonArray soil = doc["soilPerc"].to<JsonArray>();
-    for (int i = 0; i < 5; i++) soil.add(liveData->soilPerc[i]);
+    for (int i = 0; i < NUM_BEDS; i++) soil.add(liveData->soilPerc[i]);
 
     doc["waterLow"]      = liveData->waterLow;
     doc["waterCritical"] = liveData->waterCritical;
@@ -385,8 +388,9 @@ static void handleManual() {
         server.send(400, "application/json", "{\"error\":\"value out of range (0-255)\"}");
         return;
     }
-    if ((cmd == "valve_open" || cmd == "valve_close") && (val < 1 || val > 5)) {
-        server.send(400, "application/json", "{\"error\":\"value out of range (1-5)\"}");
+    if ((cmd == "valve_open" || cmd == "valve_close") && (val < 1 || val > NUM_BEDS)) {
+        server.send(400, "application/json",
+                    "{\"error\":\"value out of range (1-" + String(NUM_BEDS) + ")\"}");
         return;
     }
 
@@ -405,7 +409,7 @@ static void handleDiagnostics() {
 
     // Sensor raw values
     JsonArray rawSoil = doc["soilRaw"].to<JsonArray>();
-    for (int i = 0; i < 5; i++) rawSoil.add(liveData->soilRaw[i]);
+    for (int i = 0; i < NUM_BEDS; i++) rawSoil.add(liveData->soilRaw[i]);
 
     doc["temperature"] = liveData->tempC;
     doc["humidity"]    = liveData->humPerc;
@@ -425,7 +429,7 @@ static void handleDiagnostics() {
     if (errFlags->ERR_FS_MOUNT)       flags += "FS_MOUNT, ";
     if (errFlags->ERR_SENSOR_BME)     flags += "NO_BME, ";
     if (errFlags->ERR_SENSOR_BH)      flags += "NO_BH, ";
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < NUM_BEDS; i++) {
         if (errFlags->ERR_SOIL[i]) flags += "SOIL" + String(i + 1) + ", ";
     }
     if (flags.length() > 2) flags = flags.substring(0, flags.length() - 2);
@@ -442,7 +446,7 @@ static void handleDiagnostics() {
     doc["freeHeap"] = ESP.getFreeHeap();
 
     JsonArray errSoil = doc["ERR_SOIL"].to<JsonArray>();
-    for (int i = 0; i < 5; i++) errSoil.add(errFlags->ERR_SOIL[i]);
+    for (int i = 0; i < NUM_BEDS; i++) errSoil.add(errFlags->ERR_SOIL[i]);
 
     String json;
     serializeJson(doc, json);

@@ -1,7 +1,7 @@
 #include "actuators.h"
 #include "pins.h"
 
-static const int VALVE_PINS[5] = {
+static const int VALVE_PINS[NUM_BEDS] = {
     VALVE_PIN_1, VALVE_PIN_2, VALVE_PIN_3, VALVE_PIN_4, VALVE_PIN_5
 };
 
@@ -12,7 +12,7 @@ static const unsigned long BLINK_INTERVAL_MS = 500;
 // writes by design) — without this the serial monitor floods. Hardware writes
 // still happen on every call as a safe re-assert.
 static bool pumpRunning      = false;
-static bool valveIsOpen[5]   = {false, false, false, false, false};
+static bool valveIsOpen[NUM_BEDS] = {false};
 static int  roofDirection    = 0;   // 0 = stopped, 1 = opening, -1 = closing
 
 void actuators_init() {
@@ -37,7 +37,7 @@ void actuators_init() {
     analogWrite(MOTOR_B_PWM, 0);
 
     // Solenoid valves — all closed on boot
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < NUM_BEDS; i++) {
         pinMode(VALVE_PINS[i], OUTPUT);
         digitalWrite(VALVE_PINS[i], LOW);
     }
@@ -119,7 +119,7 @@ void valve_close(int index) {
 
 void valve_closeAll() {
     bool anyWasOpen = false;
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < NUM_BEDS; i++) {
         digitalWrite(VALVE_PINS[i], LOW);
         anyWasOpen |= valveIsOpen[i];
         valveIsOpen[i] = false;
@@ -160,7 +160,7 @@ void emergency_stop_all() {
     // Called every loop pass while EMERGENCY_STOP is latched — log only on
     // the transition from active to stopped, not on every re-assert.
     bool anythingActive = pumpRunning || roofDirection != 0;
-    for (int i = 0; i < 5; i++) anythingActive |= valveIsOpen[i];
+    for (int i = 0; i < NUM_BEDS; i++) anythingActive |= valveIsOpen[i];
 
     // Motor driver into standby — cuts both channels at hardware level
     digitalWrite(MOTOR_STBY, LOW);

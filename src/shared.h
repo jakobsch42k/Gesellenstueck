@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Arduino.h>
+#include "constants.h"
 
 // ── LiveData ──────────────────────────────────────────────────────────────────
 // Written exclusively by sensors.cpp; all other modules read only.
@@ -9,8 +10,8 @@ struct LiveData {
     float         humPerc;        // Relative humidity in %
     float         lux;            // Current light level in lux
     float         luxSmoothed;    // 60-second rolling average of lux
-    int           soilRaw[5];     // ADC raw value 0–4095 per bed
-    int           soilPerc[5];    // Normalised soil moisture 0–100% per bed
+    int           soilRaw[NUM_BEDS];   // ADC raw value 0–4095 per bed
+    int           soilPerc[NUM_BEDS];  // Normalised soil moisture 0–100% per bed
     bool          waterLow;       // true = water sufficient (BG1 HIGH)
     bool          waterCritical;  // true = water sufficient (BG2 HIGH)
     bool          roofClosed;     // true = roof in end position (Reed HIGH)
@@ -29,7 +30,7 @@ struct LiveData {
 // These four enumerate the fields by hand and silently drift if one is missed.
 struct Config {
     // Bed setpoints
-    int           moisture[5];            // Target soil moisture 0–100% per bed
+    int           moisture[NUM_BEDS];    // Target soil moisture 0–100% per bed
 
     // Roof temperature control
     float         tempTarget;             // Target temperature in °C
@@ -67,7 +68,7 @@ struct ErrorFlags {
     // Operational — reduced function
     bool   ERR_SENSOR_BME;      // BME280 unreachable on I2C
     bool   ERR_SENSOR_BH;       // BH1750 unreachable on I2C
-    bool   ERR_SOIL[5];         // ADC value outside plausibility range per bed
+    bool   ERR_SOIL[NUM_BEDS];  // ADC value outside plausibility range per bed
 
     // Human-readable description of the most recent error (shown in web UI)
     String lastErrorMessage;

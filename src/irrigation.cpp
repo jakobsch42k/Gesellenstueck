@@ -41,7 +41,7 @@ void irrigation_update(const LiveData& data, const Config& cfg, ErrorFlags& err)
 
         case IRRIGATION_IDLE: {
             // Scan beds in order, start with first dry one
-            for (int i = 0; i < 5; i++) {
+            for (int i = 0; i < NUM_BEDS; i++) {
                 if (err.ERR_SOIL[i]) continue; // skip faulty sensors
                 if (data.soilPerc[i] < cfg.moisture[i]) {
                     activeBed = i;

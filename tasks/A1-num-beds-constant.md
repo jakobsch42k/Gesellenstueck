@@ -1,6 +1,6 @@
 # A1: NUM_BEDS constant
 
-**Severity:** Medium | **Effort:** S | **Depends on:** — (do before A2) | **Status:** open
+**Severity:** Medium | **Effort:** S | **Depends on:** — (do before A2) | **Status:** done
 
 ## Problem
 

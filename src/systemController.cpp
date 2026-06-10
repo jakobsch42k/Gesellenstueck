@@ -141,8 +141,8 @@ bool SystemController::handleManualCommand(String cmd, int val) {
         pump_on();
     }
     else if (cmd == "pump_off")       pump_off();
-    else if (cmd == "valve_open"  && val >= 1 && val <= 5) valve_open(val - 1);
-    else if (cmd == "valve_close" && val >= 1 && val <= 5) valve_close(val - 1);
+    else if (cmd == "valve_open"  && val >= 1 && val <= NUM_BEDS) valve_open(val - 1);
+    else if (cmd == "valve_close" && val >= 1 && val <= NUM_BEDS) valve_close(val - 1);
     else if (cmd == "valve_closeAll") valve_closeAll();
     else if (cmd == "roof_open") {
         roof_open();
