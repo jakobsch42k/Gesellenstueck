@@ -7,15 +7,7 @@ static const int VALVE_PINS[NUM_BEDS] = {
 
 static const unsigned long BLINK_INTERVAL_MS = 500;
 
-// Logical state, used only to suppress repeated log lines. Critical-fault
-// paths call pump_off()/valve_closeAll() every loop pass (idempotent hardware
-// writes by design) — without this the serial monitor floods. Hardware writes
-// still happen on every call as a safe re-assert.
-static bool pumpRunning      = false;
-static bool valveIsOpen[NUM_BEDS] = {false};
-static int  roofDirection    = 0;   // 0 = stopped, 1 = opening, -1 = closing
-
-void actuators_init() {
+void Actuators::init() {
     // Motor driver standby
     pinMode(MOTOR_STBY, OUTPUT);
     digitalWrite(MOTOR_STBY, LOW); // start in standby
@@ -55,7 +47,7 @@ void actuators_init() {
 
 // ── Roof motor ────────────────────────────────────────────────────────────────
 
-void roof_open(int pwm) {
+void Actuators::roof_open(int pwm) {
     digitalWrite(MOTOR_STBY, HIGH);
     digitalWrite(MOTOR_A_IN1, HIGH);
     digitalWrite(MOTOR_A_IN2, LOW);
@@ -64,7 +56,7 @@ void roof_open(int pwm) {
     roofDirection = 1;
 }
 
-void roof_close(int pwm) {
+void Actuators::roof_close(int pwm) {
     digitalWrite(MOTOR_STBY, HIGH);
     digitalWrite(MOTOR_A_IN1, LOW);
     digitalWrite(MOTOR_A_IN2, HIGH);
@@ -73,7 +65,7 @@ void roof_close(int pwm) {
     roofDirection = -1;
 }
 
-void roof_stop() {
+void Actuators::roof_stop() {
     analogWrite(MOTOR_A_PWM, 0);
     digitalWrite(MOTOR_A_IN1, LOW);
     digitalWrite(MOTOR_A_IN2, LOW);
@@ -84,7 +76,7 @@ void roof_stop() {
 
 // ── Pump ─────────────────────────────────────────────────────────────────────
 
-void pump_on(int pwm) {
+void Actuators::pump_on(int pwm) {
     digitalWrite(MOTOR_STBY, HIGH);
     digitalWrite(MOTOR_B_IN1, LOW);
     digitalWrite(MOTOR_B_IN2, HIGH);
@@ -93,7 +85,7 @@ void pump_on(int pwm) {
     pumpRunning = true;
 }
 
-void pump_off() {
+void Actuators::pump_off() {
     analogWrite(MOTOR_B_PWM, 0);
     digitalWrite(MOTOR_B_IN1, LOW);
     digitalWrite(MOTOR_B_IN2, LOW);
@@ -103,21 +95,21 @@ void pump_off() {
 
 // ── Solenoid valves ───────────────────────────────────────────────────────────
 
-void valve_open(int index) {
-    if (index < 0 || index > 4) return;
+void Actuators::valve_open(int index) {
+    if (index < 0 || index >= NUM_BEDS) return;
     digitalWrite(VALVE_PINS[index], HIGH);
     if (!valveIsOpen[index]) Serial.println("[actuators] valve " + String(index + 1) + " open");
     valveIsOpen[index] = true;
 }
 
-void valve_close(int index) {
-    if (index < 0 || index > 4) return;
+void Actuators::valve_close(int index) {
+    if (index < 0 || index >= NUM_BEDS) return;
     digitalWrite(VALVE_PINS[index], LOW);
     if (valveIsOpen[index]) Serial.println("[actuators] valve " + String(index + 1) + " closed");
     valveIsOpen[index] = false;
 }
 
-void valve_closeAll() {
+void Actuators::valve_closeAll() {
     bool anyWasOpen = false;
     for (int i = 0; i < NUM_BEDS; i++) {
         digitalWrite(VALVE_PINS[i], LOW);
@@ -129,34 +121,32 @@ void valve_closeAll() {
 
 // ── Grow light ────────────────────────────────────────────────────────────────
 
-void led_grow_setPWM(int pwm) {
+void Actuators::led_grow_setPWM(int pwm) {
     pwm = constrain(pwm, 0, 255);
     analogWrite(LED_GROW_PWM, pwm);
 }
 
 // ── Warning LED ───────────────────────────────────────────────────────────────
 
-void led_warn_on() {
+void Actuators::led_warn_on() {
     digitalWrite(LED_WARN, HIGH);
 }
 
-void led_warn_off() {
+void Actuators::led_warn_off() {
     digitalWrite(LED_WARN, LOW);
 }
 
-void led_warn_blink() {
-    static unsigned long lastToggle = 0;
-    static bool state = false;
-    if (millis() - lastToggle >= BLINK_INTERVAL_MS) {
-        state = !state;
-        digitalWrite(LED_WARN, state ? HIGH : LOW);
-        lastToggle = millis();
+void Actuators::led_warn_blink() {
+    if (millis() - blinkLastToggle >= BLINK_INTERVAL_MS) {
+        blinkState = !blinkState;
+        digitalWrite(LED_WARN, blinkState ? HIGH : LOW);
+        blinkLastToggle = millis();
     }
 }
 
 // ── Emergency stop ────────────────────────────────────────────────────────────
 
-void emergency_stop_all() {
+void Actuators::emergency_stop_all() {
     // Called every loop pass while EMERGENCY_STOP is latched — log only on
     // the transition from active to stopped, not on every re-assert.
     bool anythingActive = pumpRunning || roofDirection != 0;

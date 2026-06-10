@@ -1,6 +1,7 @@
 #pragma once
 
 #include "shared.h"
+#include "actuators.h"
 
 enum RoofState {
     ROOF_IDLE,
@@ -11,7 +12,7 @@ enum RoofState {
     ROOF_ERROR
 };
 
-void      roofControl_init(const LiveData& data, ErrorFlags& err);
+void      roofControl_init(const LiveData& data, ErrorFlags& err, Actuators& act);
 void      roofControl_update(const LiveData& data, const Config& cfg, ErrorFlags& err);
 RoofState roofControl_getState();
 void      roofControl_setState(RoofState s);   // used by manual commands in maintenance mode

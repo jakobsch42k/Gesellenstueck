@@ -17,7 +17,7 @@ void SystemController::init() {
     Serial.println("[systemController] booting...");
 
     // 1. Actuators first — all outputs off before anything else runs
-    actuators_init();
+    actuators.init();
 
     // 2. Display — gives visual feedback during boot
     display_init();
@@ -34,9 +34,9 @@ void SystemController::init() {
     sensors_init(liveData, errorFlags, config);
 
     // 5. Control modules
-    roofControl_init(liveData, errorFlags);
-    irrigation_init();
-    lightManagement_init();
+    roofControl_init(liveData, errorFlags, actuators);
+    irrigation_init(actuators);
+    lightManagement_init(actuators);
 
     // 6. Web backend — starts WiFi AP and HTTP server
     webBackend_init(liveData, config, errorFlags);
@@ -77,24 +77,24 @@ void SystemController::run() {
     //    forced off where it makes sense (water faults don't concern the
     //    roof, and the roof FSM already stops itself on its own timeout).
     if (errorFlags.EMERGENCY_STOP) {
-        emergency_stop_all();
+        actuators.emergency_stop_all();
     } else if (errorFlags.ERR_WATER_CRITICAL ||
                errorFlags.ERR_FS_MOUNT      ||
                errorFlags.ERR_ROOF_TIMEOUT) {
-        pump_off();
-        valve_closeAll();
+        actuators.pump_off();
+        actuators.valve_closeAll();
         if (errorFlags.ERR_FS_MOUNT) {
-            roof_stop();
+            actuators.roof_stop();
         }
     }
 
     // 3. Warn LED
     if (!liveData.waterCritical || errorFlags.ERR_WATER_CRITICAL) {
-        led_warn_blink();
+        actuators.led_warn_blink();
     } else if (!liveData.waterLow) {
-        led_warn_on();
+        actuators.led_warn_on();
     } else {
-        led_warn_off();
+        actuators.led_warn_off();
     }
 
     // 4. Regulation — skipped during critical faults or maintenance mode
@@ -109,11 +109,11 @@ void SystemController::run() {
         irrigation_update(liveData, config, errorFlags);
         lightManagement_update(liveData, config, errorFlags);
     } else if (errorFlags.MAINTENANCE_MODE && liveData.roofClosed && !prevRoofClosed) {
-        roof_stop();
+        actuators.roof_stop();
         roofControl_setState(ROOF_CLOSED);
         maintenanceOpenUntil = 0;
     } else if (maintenanceOpenUntil && millis() >= maintenanceOpenUntil) {
-        roof_stop();
+        actuators.roof_stop();
         roofControl_setState(ROOF_OPEN);
         maintenanceOpenUntil = 0;
     }
@@ -138,36 +138,36 @@ bool SystemController::handleManualCommand(String cmd, int val) {
             Serial.println("[systemController] manual pump_on refused — water critical");
             return false;
         }
-        pump_on();
+        actuators.pump_on();
     }
-    else if (cmd == "pump_off")       pump_off();
-    else if (cmd == "valve_open"  && val >= 1 && val <= NUM_BEDS) valve_open(val - 1);
-    else if (cmd == "valve_close" && val >= 1 && val <= NUM_BEDS) valve_close(val - 1);
-    else if (cmd == "valve_closeAll") valve_closeAll();
+    else if (cmd == "pump_off")       actuators.pump_off();
+    else if (cmd == "valve_open"  && val >= 1 && val <= NUM_BEDS) actuators.valve_open(val - 1);
+    else if (cmd == "valve_close" && val >= 1 && val <= NUM_BEDS) actuators.valve_close(val - 1);
+    else if (cmd == "valve_closeAll") actuators.valve_closeAll();
     else if (cmd == "roof_open") {
-        roof_open();
+        actuators.roof_open();
         roofControl_setState(ROOF_OPENING);
         maintenanceOpenUntil = millis() + MAINTENANCE_OPEN_PULSE_MS;
     }
     else if (cmd == "roof_close") {
         if (!liveData.roofClosed) {
-            roof_close();
+            actuators.roof_close();
             roofControl_setState(ROOF_CLOSING);
         } else Serial.println("[systemController] roof_close ignored — reed already closed");
     }
     else if (cmd == "roof_stop") {
-        roof_stop();
+        actuators.roof_stop();
         roofControl_setState(ROOF_IDLE);
     }
-    else if (cmd == "led_pwm")        led_grow_setPWM(constrain(val, 0, 255));
+    else if (cmd == "led_pwm")        actuators.led_grow_setPWM(constrain(val, 0, 255));
     else if (cmd == "emergency_stop") {
         errorFlags.EMERGENCY_STOP    = true;
         errorFlags.lastErrorMessage  = "Emergency stop triggered via web UI";
-        emergency_stop_all();
+        actuators.emergency_stop_all();
     }
     else if (cmd == "maintenance_on") {
         errorFlags.MAINTENANCE_MODE = true;
-        roof_stop();
+        actuators.roof_stop();
         Serial.println("[systemController] maintenance mode ON");
     }
     else if (cmd == "maintenance_off") {

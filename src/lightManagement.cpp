@@ -10,17 +10,22 @@ static const float Ki = 0.3f;
 #define LIGHT_RAMP_STEP_MAX        2   // ≈2.5 s for full 0↔255 fade
 #define CONTROL_INTERVAL_MS      LUX_SAMPLE_INTERVAL_MS   // controller runs at sensor rate
 
+// Temporary wiring until this module becomes a class (A2): actuator access
+// goes through the SystemController-owned instance injected at init.
+static Actuators* act    = nullptr;
+
 static int   targetPWM   = 0;
 static int   currentPWM  = 0;
 static float integral    = 0.0f;
 static unsigned long lastRamp    = 0;
 static unsigned long lastControl = 0;
 
-void lightManagement_init() {
+void lightManagement_init(Actuators& actuators) {
+    act = &actuators;
     targetPWM   = 0;
     currentPWM  = 0;
     integral    = 0.0f;
-    led_grow_setPWM(0);
+    act->led_grow_setPWM(0);
     Serial.println("[lightManagement] init OK");
 }
 
@@ -63,10 +68,10 @@ void lightManagement_update(const LiveData& data, const Config& cfg, const Error
         lastRamp = now;
         if (currentPWM < targetPWM) {
             currentPWM = min(currentPWM + LIGHT_RAMP_STEP_MAX, targetPWM);
-            led_grow_setPWM(currentPWM);
+            act->led_grow_setPWM(currentPWM);
         } else if (currentPWM > targetPWM) {
             currentPWM = max(currentPWM - LIGHT_RAMP_STEP_MAX, targetPWM);
-            led_grow_setPWM(currentPWM);
+            act->led_grow_setPWM(currentPWM);
         }
     }
 }
