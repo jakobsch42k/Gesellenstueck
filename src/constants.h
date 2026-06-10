@@ -64,6 +64,7 @@
 #define ROOF_CLOSE_MS_MAX        30000UL
 #define IRRIGATE_MS_MIN            500UL
 #define IRRIGATE_MS_MAX         120000UL
+#define IRRIGATE_PAUSE_MS_MIN    60000UL  // Floor: pause is the only re-irrigation guard (diffusion time)
 #define IRRIGATE_PAUSE_MS_MAX  3600000UL
 #define SOIL_ADC_RAW_MAX           4095   // 12-bit ADC full scale
 #define MAX_PLANTS                   50   // cap on stored plant entries

@@ -1,6 +1,6 @@
 # S8: Irrigation pause lower bound
 
-**Severity:** Medium | **Effort:** S | **Depends on:** — | **Status:** open
+**Severity:** Medium | **Effort:** S | **Depends on:** — | **Status:** done
 
 ## Problem
 

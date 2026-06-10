@@ -82,6 +82,20 @@ static bool jsonToConfig(const JsonDocument& doc, Config& cfg) {
     cfg.soilWetValue          = doc["soilWetValue"]          | DEFAULT_SOIL_WET;
     cfg.configVersion         = CONFIG_VERSION;
 
+    // Load-time clamp: configs written by older firmware or hand-edited may
+    // carry out-of-range timings the web validator never saw. A zero pause
+    // would turn irrigation into a continuous pump loop.
+    if (cfg.irrigationPause_ms < IRRIGATE_PAUSE_MS_MIN ||
+        cfg.irrigationPause_ms > IRRIGATE_PAUSE_MS_MAX) {
+        Serial.println("[fileManager] irrigationPause_ms out of range — reset to default");
+        cfg.irrigationPause_ms = DEFAULT_IRRIGATE_PAUSE;
+    }
+    if (cfg.irrigationDuration_ms < IRRIGATE_MS_MIN ||
+        cfg.irrigationDuration_ms > IRRIGATE_MS_MAX) {
+        Serial.println("[fileManager] irrigationDuration_ms out of range — reset to default");
+        cfg.irrigationDuration_ms = DEFAULT_IRRIGATE_MS;
+    }
+
     return true;
 }
 

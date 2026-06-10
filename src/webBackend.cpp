@@ -135,7 +135,7 @@ static bool validateConfig(const JsonDocument& doc, String& errMsg) {
     }
     if (!doc["irrigationPause_ms"].isNull()) {
         unsigned long v = doc["irrigationPause_ms"];
-        if (v > IRRIGATE_PAUSE_MS_MAX) { errMsg = "irrigationPause_ms out of range"; return false; }
+        if (v < IRRIGATE_PAUSE_MS_MIN || v > IRRIGATE_PAUSE_MS_MAX) { errMsg = "irrigationPause_ms out of range"; return false; }
     }
     // Soil calibration: ADC counts in range, and dry must read higher than wet
     // (map() in sensors.cpp expects dry > wet). Fall back to current config for
