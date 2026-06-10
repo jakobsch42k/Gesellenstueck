@@ -18,7 +18,7 @@ static const LiveData* liveData = nullptr;
 static Config*         cfg      = nullptr;
 static ErrorFlags*     errFlags = nullptr;
 
-static std::function<void(String, int)>   _manualCtrlCb;
+static std::function<bool(String, int)>   _manualCtrlCb;
 static std::function<void()>              _ackErrorsCb;
 static std::function<void(unsigned long)> _setTimeCb;
 
@@ -378,7 +378,13 @@ static void handleManual() {
         return;
     }
 
-    if (_manualCtrlCb) _manualCtrlCb(cmd, val);
+    bool accepted = true;
+    if (_manualCtrlCb) accepted = _manualCtrlCb(cmd, val);
+    if (!accepted) {
+        server.send(409, "application/json",
+                    "{\"error\":\"command refused — water level critical\"}");
+        return;
+    }
     server.send(200, "application/json", "{\"status\":\"ok\"}");
 }
 
@@ -555,7 +561,7 @@ void webBackend_init(const LiveData& data, Config& config, ErrorFlags& err) {
 }
 
 void webBackend_registerCallbacks(
-    std::function<void(String, int)>   manualCtrlCb,
+    std::function<bool(String, int)>   manualCtrlCb,
     std::function<void()>              ackErrorsCb,
     std::function<void(unsigned long)> setTimeCb)
 {

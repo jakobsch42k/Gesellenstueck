@@ -14,6 +14,6 @@ private:
     bool           prevRoofClosed      = false;
     unsigned long  maintenanceOpenUntil = 0;
 
-    void handleManualCommand(String cmd, int val);
+    bool handleManualCommand(String cmd, int val);
     void handleAckErrors();
 };

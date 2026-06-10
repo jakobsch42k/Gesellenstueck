@@ -41,7 +41,7 @@ void SystemController::init() {
     // 6. Web backend — starts WiFi AP and HTTP server
     webBackend_init(liveData, config, errorFlags);
     webBackend_registerCallbacks(
-        [this](String cmd, int val) { handleManualCommand(cmd, val); },
+        [this](String cmd, int val) { return handleManualCommand(cmd, val); },
         [this]()                    { handleAckErrors(); },
         [this](unsigned long ts)    { sensors_setTime(liveData, ts); }
     );
@@ -126,11 +126,20 @@ void SystemController::run() {
 
 // ── Manual command handler (called from webBackend /manual callback) ──────────
 
-void SystemController::handleManualCommand(String cmd, int val) {
+bool SystemController::handleManualCommand(String cmd, int val) {
     Serial.println("[systemController] manual command: " + cmd +
                    (val ? " val=" + String(val) : ""));
 
-    if      (cmd == "pump_on")        pump_on();
+    if (cmd == "pump_on") {
+        // Manual mode bypasses regulation, not physics — never run the pump
+        // against an empty tank. Mirrors the auto-latch polarity in run():
+        // waterCritical == true means water is sufficient.
+        if (!liveData.waterCritical || errorFlags.ERR_WATER_CRITICAL) {
+            Serial.println("[systemController] manual pump_on refused — water critical");
+            return false;
+        }
+        pump_on();
+    }
     else if (cmd == "pump_off")       pump_off();
     else if (cmd == "valve_open"  && val >= 1 && val <= 5) valve_open(val - 1);
     else if (cmd == "valve_close" && val >= 1 && val <= 5) valve_close(val - 1);
@@ -169,6 +178,7 @@ void SystemController::handleManualCommand(String cmd, int val) {
     else {
         Serial.println("[systemController] unknown manual command: " + cmd);
     }
+    return true;
 }
 
 // ── Error acknowledgement (called from webBackend /ackErrors callback) ────────

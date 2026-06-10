@@ -588,7 +588,11 @@ async function manual(command, value) {
   try {
     const r = await fetch('/manual', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     if (!r.ok) throw new Error(r.status);
-  } catch (e) { toast('Command failed', true); }
+    return true;
+  } catch (e) {
+    toast(e.message === '409' ? 'Refused — water level critical' : 'Command failed', true);
+    return false;
+  }
 }
 function buildValves() {
   $('#valve-grid').innerHTML = [1, 2, 3, 4, 5].map((v) =>
@@ -637,7 +641,13 @@ function init() {
   // manual
   $('#maint-btn').addEventListener('click', () => { manual(maintenance ? 'maintenance_off' : 'maintenance_on'); maintenance = !maintenance; updateMaintUI(); });
   $$('[data-roof]').forEach((b) => b.addEventListener('click', () => manual('roof_' + b.dataset.roof)));
-  $('#pump-btn').addEventListener('click', () => { pumpOn = !pumpOn; manual(pumpOn ? 'pump_on' : 'pump_off'); $('#pump-btn').textContent = 'Pump ' + (pumpOn ? 'ON' : 'OFF'); $('#pump-btn').className = 'btn sm' + (pumpOn ? ' sky' : ''); });
+  $('#pump-btn').addEventListener('click', async () => {
+    pumpOn = !pumpOn;
+    const ok = await manual(pumpOn ? 'pump_on' : 'pump_off');
+    if (!ok) pumpOn = !pumpOn; // revert optimistic toggle on refusal/failure
+    $('#pump-btn').textContent = 'Pump ' + (pumpOn ? 'ON' : 'OFF');
+    $('#pump-btn').className = 'btn sm' + (pumpOn ? ' sky' : '');
+  });
   $('#led-slider').addEventListener('input', (e) => { $('#led-pct').innerHTML = Math.round(e.target.value / 255 * 100) + '<span class="u">%</span>'; });
   $('#led-apply').addEventListener('click', () => { manual('led_pwm', +$('#led-slider').value); toast('Brightness applied'); });
   $('#emerg-btn').addEventListener('click', () => { manual('emergency_stop'); manual('maintenance_on'); maintenance = true; updateMaintUI(); toast('EMERGENCY STOP', true); });

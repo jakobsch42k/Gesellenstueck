@@ -7,7 +7,7 @@
 void webBackend_init(const LiveData& data, Config& cfg, ErrorFlags& err);
 
 void webBackend_registerCallbacks(
-    std::function<void(String, int)>   manualCtrlCb,
+    std::function<bool(String, int)>   manualCtrlCb,  // returns false = command refused (HTTP 409)
     std::function<void()>              ackErrorsCb,
     std::function<void(unsigned long)> setTimeCb
 );
