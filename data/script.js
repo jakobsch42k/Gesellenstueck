@@ -229,9 +229,13 @@ function renderDash() {
   }
 }
 function avgSeries() {
-  const n = Math.min(...hist.soil.map((s) => s.length));
+  // Average only channels that have data, aligned from the tail — one dead
+  // soil sensor must not blank the whole trend (or drag the average down).
+  const live = hist.soil.filter((s) => s.length > 0);
+  if (!live.length) return [];
+  const n = Math.min(...live.map((s) => s.length));
   const out = [];
-  for (let i = 0; i < n; i++) out.push(Math.round(hist.soil.reduce((a, s) => a + s[s.length - n + i], 0) / 5));
+  for (let i = 0; i < n; i++) out.push(Math.round(live.reduce((a, s) => a + s[s.length - n + i], 0) / live.length));
   return out;
 }
 function bedRow(i, name, m, target, low) {

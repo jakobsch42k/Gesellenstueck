@@ -1,6 +1,6 @@
 # F3: avgSeries with partial data
 
-**Severity:** High | **Effort:** S | **Depends on:** — | **Status:** open
+**Severity:** High | **Effort:** S | **Depends on:** — | **Status:** done
 
 ## Problem
 
