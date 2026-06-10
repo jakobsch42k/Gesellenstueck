@@ -1,6 +1,6 @@
 # F4: Poll backoff + visibility pause + staleness indicator
 
-**Severity:** Medium | **Effort:** M | **Depends on:** — | **Status:** open
+**Severity:** Medium | **Effort:** M | **Depends on:** — | **Status:** done
 
 ## Problem
 

@@ -151,6 +151,7 @@ let bedPlants;
 try { bedPlants = JSON.parse(localStorage.getItem(PLANT_KEY) || 'null') || ['', '', '', '', '']; }
 catch (e) { bedPlants = ['', '', '', '', '']; }
 let maintenance = false, lastData = {}, lastDiag = {};
+let lastPollOk = false, lastDiagAt = 0, pollDelay = 2000;
 let firstPollDone = false;
 const valveState = [false, false, false, false, false];
 let pumpOn = false;
@@ -248,6 +249,15 @@ function bedRow(i, name, m, target, low) {
 
 function renderDiag() {
   const g = lastDiag, d = lastData;
+  // Staleness cue: /diagnostics can fail independently of the main poll —
+  // don't keep rendering an old payload as if it were fresh.
+  const staleEl = $('#diag-stale');
+  if (staleEl) {
+    const age = Date.now() - lastDiagAt;
+    const stale = lastDiagAt > 0 && age > 10000;
+    staleEl.hidden = !stale;
+    if (stale) staleEl.textContent = 'Sensor data ' + Math.round(age / 1000) + ' s old';
+  }
   $('#d-temp').textContent = fmt(g.temperature != null ? g.temperature : d.tempC, 1);
   $('#d-hum').textContent = fmt(g.humidity != null ? g.humidity : d.humPerc, 0);
   spark($('#spark-d-temp'), hist.temp, 'var(--terra)', 30);
@@ -363,9 +373,10 @@ async function pollOnce() {
     $('#led-water').className = 'led ' + (!d.waterCritical ? 'err' : !d.waterLow ? 'warn' : 'on');
     updateMaintUI();
     setOnline(true);
-  } catch (e) { setOnline(false); }
+    lastPollOk = true;
+  } catch (e) { setOnline(false); lastPollOk = false; }
 
-  try { lastDiag = await fetchT('/diagnostics').then((r) => r.json()); } catch (e) {}
+  try { lastDiag = await fetchT('/diagnostics').then((r) => r.json()); lastDiagAt = Date.now(); } catch (e) {}
   try { renderSystem(await fetchT('/systemStatus').then((r) => r.json())); } catch (e) { renderSystem(null); }
 
   const ef = (lastDiag.errorFlags || '').trim();
@@ -694,6 +705,20 @@ function init() {
   loadConfig();
   autoSyncTime();
   poll();
-  setInterval(poll, 2000);
+  // Self-scheduling poll loop: pauses while the tab is hidden (cheap 1 s
+  // idle check), backs off exponentially to 30 s while the device is
+  // unreachable, resets to 2 s on first success or when the tab returns.
+  (function pollLoop() {
+    setTimeout(async () => {
+      if (!document.hidden) {
+        await poll();
+        pollDelay = lastPollOk ? 2000 : Math.min(pollDelay * 2, 30000);
+      }
+      pollLoop();
+    }, document.hidden ? 1000 : pollDelay);
+  })();
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) { pollDelay = 2000; poll(); }
+  });
 }
 document.addEventListener('DOMContentLoaded', init);
