@@ -54,7 +54,9 @@ const THEME_KEY = 'hb_theme';                       // 'auto' | 'day' | 'dusk'
 const darkMQ = window.matchMedia('(prefers-color-scheme: dark)');
 function effectiveMode(pref) { return pref === 'auto' ? (darkMQ.matches ? 'dusk' : 'day') : pref; }
 function applyTheme() {
-  const pref = localStorage.getItem(THEME_KEY) || 'auto';
+  let pref = localStorage.getItem(THEME_KEY) || 'auto';
+  if (!['auto', 'day', 'dusk'].includes(pref)) pref = 'auto'; // unknown stored value
+
   const mode = effectiveMode(pref);
   document.documentElement.setAttribute('data-mode', mode);
   const meta = $('meta[name="theme-color"]');
@@ -147,9 +149,21 @@ function pushHist(d) {
 const PLANT_KEY = 'hb_bedplants';
 let config = { moisture: [40, 50, 60, 70, 80], luxTarget: 800, tempTarget: 24, tempHyst: 2, lightProfile: new Array(24).fill(50) };
 let plants = [];
-let bedPlants;
-try { bedPlants = JSON.parse(localStorage.getItem(PLANT_KEY) || 'null') || ['', '', '', '', '']; }
-catch (e) { bedPlants = ['', '', '', '', '']; }
+// Versioned envelope: a structurally different value (key reuse, bed-count
+// or shape change in a future version) must not flow into rendering.
+const PLANT_SCHEMA_V = 1;
+function loadBedPlants() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(PLANT_KEY) || 'null');
+    if (raw && raw.v === PLANT_SCHEMA_V && Array.isArray(raw.data) && raw.data.length === 5) return raw.data;
+    if (Array.isArray(raw) && raw.length === 5) return raw; // legacy pre-envelope array
+  } catch (e) {}
+  return ['', '', '', '', ''];
+}
+function saveBedPlants(arr) {
+  localStorage.setItem(PLANT_KEY, JSON.stringify({ v: PLANT_SCHEMA_V, data: arr }));
+}
+let bedPlants = loadBedPlants();
 let maintenance = false, lastData = {}, lastDiag = {};
 let lastPollOk = false, lastDiagAt = 0, pollDelay = 2000;
 let firstPollDone = false;
@@ -467,7 +481,7 @@ function buildBeds() {
 
   $$('#beds-list select[data-bed]').forEach((sel) => sel.addEventListener('change', () => {
     const i = +sel.dataset.bed; bedPlants[i] = sel.value;
-    localStorage.setItem(PLANT_KEY, JSON.stringify(bedPlants));
+    saveBedPlants(bedPlants);
     const p = plants.find((x) => x.name === sel.value);
     if (p && p.targetMoisture != null) {
       config.moisture[i] = clamp(p.targetMoisture, 0, 100);

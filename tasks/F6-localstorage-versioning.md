@@ -1,6 +1,6 @@
 # F6: localStorage schema versioning
 
-**Severity:** Medium | **Effort:** S | **Depends on:** — | **Status:** open
+**Severity:** Medium | **Effort:** S | **Depends on:** — | **Status:** done
 
 ## Problem
 
