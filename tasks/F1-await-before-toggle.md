@@ -1,6 +1,6 @@
 # F1: Await POST before UI toggle
 
-**Severity:** Critical (UI trust) | **Effort:** M | **Depends on:** — | **Status:** open
+**Severity:** Critical (UI trust) | **Effort:** M | **Depends on:** — | **Status:** done
 
 ## Problem
 

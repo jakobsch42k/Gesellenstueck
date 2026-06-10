@@ -586,7 +586,7 @@ async function manual(command, value) {
   const payload = { command };
   if (value != null) payload.value = value;
   try {
-    const r = await fetch('/manual', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const r = await fetchT('/manual', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     if (!r.ok) throw new Error(r.status);
     return true;
   } catch (e) {
@@ -599,11 +599,19 @@ function buildValves() {
     `<button class="btn sm" data-valve="${v}" style="flex-direction:column;gap:2px;padding:9px 0;min-height:52px">
       <svg class="ic" data-ic="drop" style="width:15px;height:15px"></svg><span style="font-size:10px">V${v}</span></button>`).join('');
   initIcons($('#valve-grid'));
-  $$('#valve-grid [data-valve]').forEach((b) => b.addEventListener('click', () => {
-    const i = +b.dataset.valve - 1; valveState[i] = !valveState[i];
-    b.classList.toggle('on', valveState[i]);
-    b.querySelector('svg').style.color = valveState[i] ? '#fff' : 'var(--sky)';
-    manual(valveState[i] ? 'valve_open' : 'valve_close', +b.dataset.valve);
+  // Confirmed-state only: mutate UI after the POST succeeds (fetchT bounds
+  // the wait); button disabled during the round-trip to prevent double-fire.
+  $$('#valve-grid [data-valve]').forEach((b) => b.addEventListener('click', async () => {
+    const i = +b.dataset.valve - 1;
+    const next = !valveState[i];
+    b.disabled = true;
+    const ok = await manual(next ? 'valve_open' : 'valve_close', +b.dataset.valve);
+    if (ok) {
+      valveState[i] = next;
+      b.classList.toggle('on', next);
+      b.querySelector('svg').style.color = next ? '#fff' : 'var(--sky)';
+    }
+    b.disabled = false;
   }));
 }
 
@@ -639,14 +647,25 @@ function init() {
   $('#new-plant-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') addPlant(); });
 
   // manual
-  $('#maint-btn').addEventListener('click', () => { manual(maintenance ? 'maintenance_off' : 'maintenance_on'); maintenance = !maintenance; updateMaintUI(); });
+  // Safety-state toggle: UI flips only after confirmed 200. Poll
+  // reconciliation (MAINTENANCE_MODE in /data.json) remains authoritative.
+  $('#maint-btn').addEventListener('click', async () => {
+    const btn = $('#maint-btn');
+    btn.disabled = true;
+    const ok = await manual(maintenance ? 'maintenance_off' : 'maintenance_on');
+    if (ok) { maintenance = !maintenance; updateMaintUI(); }
+    btn.disabled = false;
+  });
   $$('[data-roof]').forEach((b) => b.addEventListener('click', () => manual('roof_' + b.dataset.roof)));
   $('#pump-btn').addEventListener('click', async () => {
-    pumpOn = !pumpOn;
-    const ok = await manual(pumpOn ? 'pump_on' : 'pump_off');
-    if (!ok) pumpOn = !pumpOn; // revert optimistic toggle on refusal/failure
-    $('#pump-btn').textContent = 'Pump ' + (pumpOn ? 'ON' : 'OFF');
-    $('#pump-btn').className = 'btn sm' + (pumpOn ? ' sky' : '');
+    const btn = $('#pump-btn');
+    const next = !pumpOn;
+    btn.disabled = true;
+    const ok = await manual(next ? 'pump_on' : 'pump_off');
+    if (ok) pumpOn = next; // confirmed state only
+    btn.textContent = 'Pump ' + (pumpOn ? 'ON' : 'OFF');
+    btn.className = 'btn sm' + (pumpOn ? ' sky' : '');
+    btn.disabled = false;
   });
   $('#led-slider').addEventListener('input', (e) => { $('#led-pct').innerHTML = Math.round(e.target.value / 255 * 100) + '<span class="u">%</span>'; });
   $('#led-apply').addEventListener('click', () => { manual('led_pwm', +$('#led-slider').value); toast('Brightness applied'); });
