@@ -2,10 +2,6 @@
 #include "actuators.h"
 #include "constants.h"
 
-// Temporary shim backing for webBackend until the ControlStatus decoupling
-// step (A2 last step) — points at the SystemController-owned instance.
-static RoofController* instance = nullptr;
-
 void RoofController::enterState(RoofState next) {
     state          = next;
     stateEnteredAt = millis();
@@ -13,8 +9,7 @@ void RoofController::enterState(RoofState next) {
 }
 
 void RoofController::init(const LiveData& data, ErrorFlags& err, Actuators& actuators) {
-    act      = &actuators;
-    instance = this;
+    act = &actuators;
     // Set initial state from reed contact so motor doesn't run on reboot
     if (data.roofClosed) {
         enterState(ROOF_CLOSED);
@@ -131,8 +126,4 @@ void RoofController::ackError(ErrorFlags& err) {
         enterState(ROOF_IDLE);
         Serial.println("[roofControl] error acknowledged — returning to IDLE");
     }
-}
-
-RoofState roofControl_getState() {
-    return instance ? instance->getState() : ROOF_IDLE;
 }

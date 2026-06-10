@@ -13,9 +13,10 @@ public:
     void run();
 
 private:
-    LiveData   liveData   = {};
-    Config     config     = {};
-    ErrorFlags errorFlags = {};
+    LiveData      liveData      = {};
+    Config        config        = {};
+    ErrorFlags    errorFlags    = {};
+    ControlStatus controlStatus = {};
     Actuators      actuators;
     Sensors        sensors;
     RoofController       roofControl;

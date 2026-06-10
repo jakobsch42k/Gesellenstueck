@@ -1,6 +1,6 @@
 # A2: OOP module classes
 
-**Severity:** Medium (architecture) | **Effort:** L | **Depends on:** A1, S1–S8 (fixes carry into refactored code) | **Status:** open
+**Severity:** Medium (architecture) | **Effort:** L | **Depends on:** A1, S1–S8 (fixes carry into refactored code) | **Status:** done
 
 ## Problem
 

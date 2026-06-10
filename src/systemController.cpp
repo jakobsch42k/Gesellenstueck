@@ -39,7 +39,7 @@ void SystemController::init() {
     lightControl.init(actuators);
 
     // 6. Web backend — starts WiFi AP and HTTP server
-    webBackend_init(liveData, config, errorFlags);
+    webBackend_init(liveData, config, errorFlags, controlStatus);
     webBackend_registerCallbacks(
         [this](String cmd, int val) { return handleManualCommand(cmd, val); },
         [this]()                    { handleAckErrors(); },
@@ -119,7 +119,12 @@ void SystemController::run() {
     }
     prevRoofClosed = liveData.roofClosed;
 
-    // 5. Display and web — always run so the UI stays responsive
+    // 5. Snapshot control state for the web backend, then display and web —
+    //    always run so the UI stays responsive
+    controlStatus.roofState  = roofControl.getState();
+    controlStatus.irrigState = irrigation.getState();
+    controlStatus.lightPWM   = lightControl.getCurrentPWM();
+
     display_update(liveData, errorFlags);
     webBackend_handle();
 }

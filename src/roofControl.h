@@ -3,15 +3,6 @@
 #include "shared.h"
 #include "actuators.h"
 
-enum RoofState {
-    ROOF_IDLE,
-    ROOF_OPENING,
-    ROOF_OPEN,
-    ROOF_CLOSING,
-    ROOF_CLOSED,
-    ROOF_ERROR
-};
-
 // Temperature-driven roof FSM. Owned by SystemController; the instance lives
 // for the full program duration, so the Actuators pointer stays valid.
 class RoofController {
@@ -31,7 +22,3 @@ private:
     bool          bmeStaleLatched = false;
     bool          reedWarnedThisStroke = false;
 };
-
-// Temporary shim for webBackend until the ControlStatus decoupling step (A2
-// last step): forwards to the SystemController-owned instance.
-RoofState roofControl_getState();

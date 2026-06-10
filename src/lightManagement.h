@@ -21,7 +21,3 @@ private:
     unsigned long lastRamp    = 0;
     unsigned long lastControl = 0;
 };
-
-// Temporary shim for webBackend until the ControlStatus decoupling step (A2
-// last step): forwards to the SystemController-owned instance.
-int lightManagement_getCurrentPWM();

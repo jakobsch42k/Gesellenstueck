@@ -1,18 +1,13 @@
 #include "irrigation.h"
 #include "actuators.h"
 
-// Temporary shim backing for webBackend until the ControlStatus decoupling
-// step (A2 last step) — points at the SystemController-owned instance.
-static IrrigationController* instance = nullptr;
-
 void IrrigationController::enterState(IrrigationState next) {
     state          = next;
     stateEnteredAt = millis();
 }
 
 void IrrigationController::init(Actuators& actuators) {
-    act      = &actuators;
-    instance = this;
+    act = &actuators;
     act->valve_closeAll();
     act->pump_off();
     enterState(IRRIGATION_IDLE);
@@ -78,8 +73,4 @@ void IrrigationController::update(const LiveData& data, const Config& cfg, Error
             }
             break;
     }
-}
-
-IrrigationState irrigation_getState() {
-    return instance ? instance->getState() : IRRIGATION_IDLE;
 }

@@ -3,12 +3,6 @@
 #include "shared.h"
 #include "actuators.h"
 
-enum IrrigationState {
-    IRRIGATION_IDLE,
-    IRRIGATION_PUMPING,
-    IRRIGATION_PAUSING
-};
-
 // Bed-scanning irrigation FSM. Owned by SystemController; the instance lives
 // for the full program duration, so the Actuators pointer stays valid.
 class IrrigationController {
@@ -26,7 +20,3 @@ private:
     unsigned long   stateEnteredAt = 0;
     int             activeBed      = -1;
 };
-
-// Temporary shim for webBackend until the ControlStatus decoupling step (A2
-// last step): forwards to the SystemController-owned instance.
-IrrigationState irrigation_getState();

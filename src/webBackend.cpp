@@ -1,9 +1,6 @@
 #include "webBackend.h"
 #include "constants.h"
 #include "fileManager.h"
-#include "roofControl.h"
-#include "irrigation.h"
-#include "lightManagement.h"
 #include <WiFi.h>
 #include <WebServer.h>
 #include <DNSServer.h>
@@ -14,9 +11,10 @@ static WebServer  server(80);
 static DNSServer  dnsServer;
 static WiFiServer httpsRedirect(443); // intercepts iOS HTTPS captive-portal probes
 
-static const LiveData* liveData = nullptr;
-static Config*         cfg      = nullptr;
-static ErrorFlags*     errFlags = nullptr;
+static const LiveData*      liveData   = nullptr;
+static Config*              cfg        = nullptr;
+static ErrorFlags*          errFlags   = nullptr;
+static const ControlStatus* ctrlStatus = nullptr;
 
 static std::function<bool(String, int)>   _manualCtrlCb;
 static std::function<void()>              _ackErrorsCb;
@@ -192,7 +190,7 @@ static void handleData() {
     doc["timeOfDay"]     = liveData->timeOfDay;
 
     const char* irrStr[] = {"IDLE", "PUMPING", "PAUSING"};
-    doc["pumpStatus"]    = irrStr[(int)irrigation_getState()];
+    doc["pumpStatus"]    = irrStr[(int)ctrlStatus->irrigState];
 
     addErrorFlags(doc);
 
@@ -419,7 +417,7 @@ static void handleDiagnostics() {
     doc["roofContact"] = liveData->roofClosed ? "Closed" : "Open";
 
     const char* irrStr[] = {"IDLE", "PUMPING", "PAUSING"};
-    doc["pumpStatus"] = irrStr[(int)irrigation_getState()];
+    doc["pumpStatus"] = irrStr[(int)ctrlStatus->irrigState];
 
     // Active error flags as a comma-separated string
     String flags = "";
@@ -439,8 +437,8 @@ static void handleDiagnostics() {
     doc["commStatus"] = netDesc() + " — IP " + netIP();
 
     const char* roofStr[] = {"IDLE", "OPENING", "OPEN", "CLOSING", "CLOSED", "ERROR"};
-    doc["roofState"] = roofStr[(int)roofControl_getState()];
-    doc["ledPWM"]    = lightManagement_getCurrentPWM();
+    doc["roofState"] = roofStr[(int)ctrlStatus->roofState];
+    doc["ledPWM"]    = ctrlStatus->lightPWM;
 
     doc["voltage"]  = "N/A";
     doc["freeHeap"] = ESP.getFreeHeap();
@@ -528,10 +526,12 @@ static void handleNotFound() {
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-void webBackend_init(const LiveData& data, Config& config, ErrorFlags& err) {
-    liveData = &data;
-    cfg      = &config;
-    errFlags = &err;
+void webBackend_init(const LiveData& data, Config& config, ErrorFlags& err,
+                     const ControlStatus& status) {
+    liveData   = &data;
+    cfg        = &config;
+    errFlags   = &err;
+    ctrlStatus = &status;
 
     WiFi.mode(WIFI_AP);
     WiFi.softAP(WIFI_SSID, WIFI_PASS, 6);

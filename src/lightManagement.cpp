@@ -10,13 +10,8 @@ static const float Ki = 0.3f;
 #define LIGHT_RAMP_STEP_MAX        2   // ≈2.5 s for full 0↔255 fade
 #define CONTROL_INTERVAL_MS      LUX_SAMPLE_INTERVAL_MS   // controller runs at sensor rate
 
-// Temporary shim backing for webBackend until the ControlStatus decoupling
-// step (A2 last step) — points at the SystemController-owned instance.
-static LightController* instance = nullptr;
-
 void LightController::init(Actuators& actuators) {
-    act      = &actuators;
-    instance = this;
+    act = &actuators;
     targetPWM   = 0;
     currentPWM  = 0;
     integral    = 0.0f;
@@ -74,8 +69,4 @@ void LightController::update(const LiveData& data, const Config& cfg, const Erro
 void LightController::resetPWM() {
     currentPWM = -1; // force recalculation/ramp on next update
     integral   = 0.0f;
-}
-
-int lightManagement_getCurrentPWM() {
-    return instance ? instance->getCurrentPWM() : 0;
 }

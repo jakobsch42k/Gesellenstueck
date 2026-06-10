@@ -54,6 +54,33 @@ struct Config {
     int           configVersion;
 };
 
+// ── Control module states ─────────────────────────────────────────────────────
+// Defined here (not in the controller headers) so ControlStatus below can be
+// shared with webBackend without coupling it to the control modules.
+enum RoofState {
+    ROOF_IDLE,
+    ROOF_OPENING,
+    ROOF_OPEN,
+    ROOF_CLOSING,
+    ROOF_CLOSED,
+    ROOF_ERROR
+};
+
+enum IrrigationState {
+    IRRIGATION_IDLE,
+    IRRIGATION_PUMPING,
+    IRRIGATION_PAUSING
+};
+
+// ── ControlStatus ─────────────────────────────────────────────────────────────
+// Read-only snapshot of control module state for the web backend. Filled by
+// SystemController each loop; webBackend reads it via const pointer.
+struct ControlStatus {
+    RoofState       roofState  = ROOF_IDLE;
+    IrrigationState irrigState = IRRIGATION_IDLE;
+    int             lightPWM   = 0;
+};
+
 // ── ErrorFlags ────────────────────────────────────────────────────────────────
 // Critical flags lock actuators until manually acknowledged via /ackErrors.
 // Warning flags clear automatically when the cause is resolved.
