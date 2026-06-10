@@ -1,8 +1,10 @@
 #include "roofControl.h"
 #include "actuators.h"
+#include "constants.h"
 
-static RoofState     state         = ROOF_IDLE;
-static unsigned long stateEnteredAt = 0;
+static RoofState     state           = ROOF_IDLE;
+static unsigned long stateEnteredAt  = 0;
+static bool          bmeStaleLatched = false;
 
 static void enterState(RoofState next) {
     state          = next;
@@ -26,10 +28,30 @@ void roofControl_update(const LiveData& data, const Config& cfg, ErrorFlags& err
 
     unsigned long elapsed = millis() - stateEnteredAt;
 
+    // Stale-data guard: BME280 frozen → tempC can't be trusted. Policy is
+    // safe-open: an open roof can't overheat the bed; rain exposure is the
+    // lesser risk. While stale, never start a closing stroke; an in-progress
+    // stroke may finish (reed contact / timeout still supervise it). Normal
+    // regulation resumes automatically on the first fresh read.
+    bool bmeStale = (millis() - data.lastBmeReadMs) > SENSOR_STALE_TIMEOUT_MS;
+    if (bmeStale != bmeStaleLatched) {
+        bmeStaleLatched = bmeStale;
+        Serial.println(bmeStale
+            ? "[roofControl] BME280 data stale — safe-opening roof, regulation suspended"
+            : "[roofControl] BME280 data fresh — regulation resumed");
+    }
+
     switch (state) {
 
         case ROOF_IDLE:
         case ROOF_CLOSED:
+            // Safe-open on stale data
+            if (bmeStale) {
+                roof_open();
+                enterState(ROOF_OPENING);
+                Serial.println("[roofControl] stale sensor data — opening roof");
+                break;
+            }
             // Open if too warm
             if (data.tempC > cfg.tempTarget + cfg.tempHysteresis) {
                 roof_open();
@@ -48,6 +70,8 @@ void roofControl_update(const LiveData& data, const Config& cfg, ErrorFlags& err
             break;
 
         case ROOF_OPEN:
+            // Hold open on stale data — never close on a frozen reading
+            if (bmeStale) break;
             // Close if cool enough
             if (data.tempC < cfg.tempTarget - cfg.tempHysteresis) {
                 roof_close();

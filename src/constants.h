@@ -26,6 +26,11 @@
 #define SOIL_ADC_MAX               4000   // Above this → sensor fault
 #define SOIL_ADC_SAMPLES             10   // Averaged readings per sensor per cycle
 
+// ── Sensor staleness ─────────────────────────────────────────────────────────
+// Max age of last good BME280 read before temperature data counts as stale.
+// 30 s ≫ normal read cadence (every loop pass); tolerates transient I2C hiccups.
+#define SENSOR_STALE_TIMEOUT_MS    30000UL
+
 // ── Light Management ─────────────────────────────────────────────────────────
 #define LUX_SAMPLE_INTERVAL_MS      120   // BH1750 high-res integration time
 #define LUX_EMA_ALPHA               0.15f // EMA weight per sample (≈6-sample window ≈ 700 ms)

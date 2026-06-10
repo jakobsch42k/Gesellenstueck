@@ -15,6 +15,7 @@ struct LiveData {
     bool          waterCritical;  // true = water sufficient (BG2 HIGH)
     bool          roofClosed;     // true = roof in end position (Reed HIGH)
     unsigned long timeOfDay;      // Seconds since midnight (0–86399)
+    unsigned long lastBmeReadMs;  // millis() of last successful non-NaN BME280 read
 };
 
 // ── Config ────────────────────────────────────────────────────────────────────

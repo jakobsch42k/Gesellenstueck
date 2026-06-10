@@ -1,6 +1,6 @@
 # S3: BME280 staleness guard
 
-**Severity:** High | **Effort:** M | **Depends on:** — | **Status:** open
+**Severity:** High | **Effort:** M | **Depends on:** — | **Status:** done
 
 ## Problem
 

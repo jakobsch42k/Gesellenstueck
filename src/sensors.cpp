@@ -87,8 +87,9 @@ void sensors_update(LiveData& data, ErrorFlags& err, const Config& cfg) {
         float h = bme.readHumidity();
         // NaN indicates a read failure — keep last good value
         if (!isnan(t) && !isnan(h)) {
-            data.tempC   = t;
-            data.humPerc = h;
+            data.tempC         = t;
+            data.humPerc       = h;
+            data.lastBmeReadMs = millis();
         } else {
             Serial.println("[sensors] WARNING: BME280 read returned NaN");
         }
