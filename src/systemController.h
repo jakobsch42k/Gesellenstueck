@@ -2,6 +2,7 @@
 
 #include "shared.h"
 #include "actuators.h"
+#include "sensors.h"
 
 class SystemController {
 public:
@@ -13,6 +14,7 @@ private:
     Config     config     = {};
     ErrorFlags errorFlags = {};
     Actuators  actuators;
+    Sensors    sensors;
     bool           prevRoofClosed      = false;
     unsigned long  maintenanceOpenUntil = 0;
 

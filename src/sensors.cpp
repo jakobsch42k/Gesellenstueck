@@ -2,27 +2,15 @@
 #include "constants.h"
 #include "pins.h"
 #include <Wire.h>
-#include <Adafruit_BME280.h>
-#include <BH1750.h>
-
-static Adafruit_BME280 bme;
-static BH1750          lightMeter;
-
-// Lux EMA smoothing
-static bool           luxEmaSeeded  = false;
-static unsigned long  lastLuxSample = 0;
 
 // Soil sensor ADC pins in index order
 static const int SOIL_PINS[NUM_BEDS] = {
     SOIL_PIN_1, SOIL_PIN_2, SOIL_PIN_3, SOIL_PIN_4, SOIL_PIN_5
 };
 
-// Time tracking
-static unsigned long lastTimeUpdate = 0;
-
 // ── Init ──────────────────────────────────────────────────────────────────────
 
-void sensors_init(LiveData& data, ErrorFlags& err, const Config& cfg) {
+void Sensors::init(LiveData& data, ErrorFlags& err, const Config& cfg) {
     Wire.begin(PIN_SDA, PIN_SCL);
 
     // BME280
@@ -63,7 +51,7 @@ void sensors_init(LiveData& data, ErrorFlags& err, const Config& cfg) {
     }
 
     // Do an initial read to populate LiveData before first loop
-    sensors_update(data, err, cfg);
+    update(data, err, cfg);
 
     lastTimeUpdate = millis();
     Serial.println("[sensors] init OK");
@@ -71,7 +59,7 @@ void sensors_init(LiveData& data, ErrorFlags& err, const Config& cfg) {
 
 // ── Update ────────────────────────────────────────────────────────────────────
 
-void sensors_update(LiveData& data, ErrorFlags& err, const Config& cfg) {
+void Sensors::update(LiveData& data, ErrorFlags& err, const Config& cfg) {
 
     // ── Advance timeOfDay ────────────────────────────────────────────────────
     unsigned long now = millis();
@@ -141,7 +129,7 @@ void sensors_update(LiveData& data, ErrorFlags& err, const Config& cfg) {
 
 // ── Time setter (called by webBackend /setTime) ───────────────────────────────
 
-void sensors_setTime(LiveData& data, unsigned long unixTimestamp) {
+void Sensors::setTime(LiveData& data, unsigned long unixTimestamp) {
     // Extract seconds since midnight from Unix timestamp (UTC)
     data.timeOfDay = unixTimestamp % 86400;
     lastTimeUpdate = millis();

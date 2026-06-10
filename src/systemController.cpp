@@ -31,7 +31,7 @@ void SystemController::init() {
     }
 
     // 4. Sensors — populates liveData with initial values
-    sensors_init(liveData, errorFlags, config);
+    sensors.init(liveData, errorFlags, config);
 
     // 5. Control modules
     roofControl_init(liveData, errorFlags, actuators);
@@ -43,7 +43,7 @@ void SystemController::init() {
     webBackend_registerCallbacks(
         [this](String cmd, int val) { return handleManualCommand(cmd, val); },
         [this]()                    { handleAckErrors(); },
-        [this](unsigned long ts)    { sensors_setTime(liveData, ts); }
+        [this](unsigned long ts)    { sensors.setTime(liveData, ts); }
     );
 
     // 7. Watchdog — last, so slow one-time init steps can't trip it. If the
@@ -61,7 +61,7 @@ void SystemController::run() {
     esp_task_wdt_reset();
 
     // 1. Read all sensors
-    sensors_update(liveData, errorFlags, config);
+    sensors.update(liveData, errorFlags, config);
 
     // 1b. Latch critical water fault. waterCritical reads true when water is
     //     present; a false reading means the lower float tripped (tank empty).
