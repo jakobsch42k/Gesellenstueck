@@ -9,6 +9,12 @@ constexpr uint8_t NUM_BEDS = 5;   // Raised beds: soil sensors, valves, moisture
 // ── WiFi Credentials ─────────────────────────────────────────────────────────
 #define WIFI_SSID                  "Esp-32-Webserver"
 #define WIFI_PASS                  "12345678"
+#define WIFI_CHANNEL                  6
+
+// ── Hardware Addresses (I2C) ─────────────────────────────────────────────────
+#define LCD_I2C_ADDR               0x27
+#define BME_I2C_ADDR_PRIMARY       0x76
+#define BME_I2C_ADDR_ALT           0x77
 
 // ── Config Defaults ──────────────────────────────────────────────────────────
 #define DEFAULT_MOISTURE            40    // Target soil moisture per bed (%)
@@ -41,6 +47,9 @@ constexpr uint8_t NUM_BEDS = 5;   // Raised beds: soil sensors, valves, moisture
 #define LUX_SAMPLE_INTERVAL_MS      120   // BH1750 high-res integration time
 #define LUX_EMA_ALPHA               0.15f // EMA weight per sample (≈6-sample window ≈ 700 ms)
 #define LUX_HYSTERESIS                5   // Dead-band for P-controller (lux)
+#define LIGHT_KI                    0.3f  // Integral gain: PWM change per sample per lx of error
+#define LIGHT_RAMP_INTERVAL_MS       20   // 50 Hz output update (slew-rate limiter)
+#define LIGHT_RAMP_STEP_MAX           2   // ≈2.5 s for full 0↔255 fade
 
 // ── Watchdog ─────────────────────────────────────────────────────────────────
 // Generous: normal loop pass is ms; worst case (importConfig + backup rotation
@@ -49,6 +58,7 @@ constexpr uint8_t NUM_BEDS = 5;   // Raised beds: soil sensors, valves, moisture
 
 // ── Display ──────────────────────────────────────────────────────────────────
 #define DISPLAY_UPDATE_MS          2000UL // LCD refresh interval
+#define BLINK_INTERVAL_MS           500UL // Warning LED blink half-period
 
 // ── Config File ──────────────────────────────────────────────────────────────
 #define CONFIG_VERSION                1
@@ -58,6 +68,7 @@ constexpr uint8_t NUM_BEDS = 5;   // Raised beds: soil sensors, valves, moisture
 #define CONFIG_BAK2_PATH       "/config.bak2"
 #define CONFIG_BAK3_PATH       "/config.bak3"
 #define PLANTS_PATH            "/plants.json"
+#define PLANTS_TMP_PATH        "/plants.tmp"
 
 // ── Web Input Bounds (config validation) ─────────────────────────────────────
 // Guard rails for values written via /saveConfig and /importConfig so a bad

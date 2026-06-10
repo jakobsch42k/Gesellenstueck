@@ -5,8 +5,6 @@ static const int VALVE_PINS[NUM_BEDS] = {
     VALVE_PIN_1, VALVE_PIN_2, VALVE_PIN_3, VALVE_PIN_4, VALVE_PIN_5
 };
 
-static const unsigned long BLINK_INTERVAL_MS = 500;
-
 void Actuators::init() {
     // Motor driver standby
     pinMode(MOTOR_STBY, OUTPUT);

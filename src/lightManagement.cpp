@@ -2,12 +2,6 @@
 #include "actuators.h"
 #include "constants.h"
 
-// Integral gain: PWM change per sample per lx of error
-static const float Ki = 0.3f;
-
-// Slew-rate limit: smooth visible fades instead of abrupt steps
-#define LIGHT_RAMP_INTERVAL_MS    20   // 50 Hz output update
-#define LIGHT_RAMP_STEP_MAX        2   // ≈2.5 s for full 0↔255 fade
 #define CONTROL_INTERVAL_MS      LUX_SAMPLE_INTERVAL_MS   // controller runs at sensor rate
 
 void LightController::init(Actuators& actuators) {
@@ -44,7 +38,7 @@ void LightController::update(const LiveData& data, const Config& cfg, const Erro
         bool atMax = (targetPWM >= 255) && (error > 0);
         bool atMin = (targetPWM <= 0)   && (error < 0);
         if (!atMax && !atMin && fabsf(error) >= LUX_HYSTERESIS) {
-            integral += Ki * error;
+            integral += LIGHT_KI * error;
         }
         // Clamp integral so feedforward + integral never demands outside [0, 255]
         integral = constrain(integral, (float)(-feedforward), (float)(255 - feedforward));

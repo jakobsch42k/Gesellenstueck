@@ -231,8 +231,7 @@ bool loadPlants(JsonDocument& doc) {
 bool savePlants(const JsonDocument& doc) {
     // Write to temp file first, then atomic rename — same pattern as saveConfig.
     // Prevents plants.json corruption on power loss mid-write.
-    const char* tmpPath = "/plants.tmp";
-    File tmp = LittleFS.open(tmpPath, "w");
+    File tmp = LittleFS.open(PLANTS_TMP_PATH, "w");
     if (!tmp) {
         Serial.println("[fileManager] ERROR: could not open plants.tmp for writing");
         return false;
@@ -241,7 +240,7 @@ bool savePlants(const JsonDocument& doc) {
     tmp.close();
 
     LittleFS.remove(PLANTS_PATH);
-    if (!LittleFS.rename(tmpPath, PLANTS_PATH)) {
+    if (!LittleFS.rename(PLANTS_TMP_PATH, PLANTS_PATH)) {
         Serial.println("[fileManager] ERROR: rename plants.tmp -> plants.json failed");
         return false;
     }

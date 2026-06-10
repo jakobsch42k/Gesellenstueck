@@ -3,7 +3,7 @@
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 
-static LiquidCrystal_I2C lcd(0x27, 16, 2);
+static LiquidCrystal_I2C lcd(LCD_I2C_ADDR, 16, 2);
 
 // Pad or truncate a string to exactly 'width' characters
 static String padTo(const String& s, int width) {

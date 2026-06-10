@@ -534,7 +534,7 @@ void webBackend_init(const LiveData& data, Config& config, ErrorFlags& err,
     ctrlStatus = &status;
 
     WiFi.mode(WIFI_AP);
-    WiFi.softAP(WIFI_SSID, WIFI_PASS, 6);
+    WiFi.softAP(WIFI_SSID, WIFI_PASS, WIFI_CHANNEL);
     Serial.println("[webBackend] AP started — IP: " + WiFi.softAPIP().toString());
 
     // Captive portal DNS: resolve every hostname to the ESP32 IP

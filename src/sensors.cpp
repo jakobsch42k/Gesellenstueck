@@ -14,9 +14,9 @@ void Sensors::init(LiveData& data, ErrorFlags& err, const Config& cfg) {
     Wire.begin(PIN_SDA, PIN_SCL);
 
     // BME280
-    if (!bme.begin(0x76)) {
+    if (!bme.begin(BME_I2C_ADDR_PRIMARY)) {
         // Try alternate address
-        if (!bme.begin(0x77)) {
+        if (!bme.begin(BME_I2C_ADDR_ALT)) {
             err.ERR_SENSOR_BME = true;
             err.lastErrorMessage = "BME280 not found on I2C";
             Serial.println("[sensors] ERROR: BME280 not found");
