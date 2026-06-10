@@ -72,12 +72,20 @@ void SystemController::run() {
         Serial.println("[systemController] ERR_WATER_CRITICAL latched — tank empty");
     }
 
-    // 2. Critical fault handling — takes priority over everything
+    // 2. Critical fault handling — takes priority over everything.
+    //    Any critical fault parks pump and valves; the roof motor is only
+    //    forced off where it makes sense (water faults don't concern the
+    //    roof, and the roof FSM already stops itself on its own timeout).
     if (errorFlags.EMERGENCY_STOP) {
         emergency_stop_all();
-    } else if (errorFlags.ERR_WATER_CRITICAL) {
+    } else if (errorFlags.ERR_WATER_CRITICAL ||
+               errorFlags.ERR_FS_MOUNT      ||
+               errorFlags.ERR_ROOF_TIMEOUT) {
         pump_off();
         valve_closeAll();
+        if (errorFlags.ERR_FS_MOUNT) {
+            roof_stop();
+        }
     }
 
     // 3. Warn LED
@@ -93,6 +101,7 @@ void SystemController::run() {
     bool criticalFault = errorFlags.EMERGENCY_STOP ||
                          errorFlags.ERR_WATER_CRITICAL ||
                          errorFlags.ERR_FS_MOUNT      ||
+                         errorFlags.ERR_ROOF_TIMEOUT  ||
                          errorFlags.MAINTENANCE_MODE;
 
     if (!criticalFault) {

@@ -1,6 +1,6 @@
 # S2: Stop actuators on FS fault
 
-**Severity:** Critical | **Effort:** S | **Depends on:** — | **Status:** open
+**Severity:** Critical | **Effort:** S | **Depends on:** — | **Status:** done
 
 ## Problem
 
