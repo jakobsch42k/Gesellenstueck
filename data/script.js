@@ -387,8 +387,13 @@ function renderLiveBeds() {
 async function loadConfig() {
   try {
     const c = await fetch('/loadConfig').then((r) => r.json());
-    config.moisture = c.moisture || [c.moisture1, c.moisture2, c.moisture3, c.moisture4, c.moisture5].map((x) => x || 50);
-    config.luxTarget = c.luxTarget || c.lux || 800;
+    // Nullish, not falsy: 0 is a valid stored value (luxTarget 0 = lights
+    // off). `||` would silently turn it into the default and the next save
+    // would write the default back to the firmware.
+    config.moisture = Array.isArray(c.moisture) && c.moisture.length === 5
+      ? c.moisture.map((x) => x ?? 50)
+      : [c.moisture1, c.moisture2, c.moisture3, c.moisture4, c.moisture5].map((x) => x ?? 50);
+    config.luxTarget = c.luxTarget ?? c.lux ?? 800;
     if (c.tempTarget != null) config.tempTarget = c.tempTarget;
     // firmware serialises the hysteresis band as `tempHysteresis`; accept the legacy `tempHyst` too
     if (c.tempHysteresis != null) config.tempHyst = c.tempHysteresis;

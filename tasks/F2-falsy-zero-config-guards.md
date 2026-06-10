@@ -1,6 +1,6 @@
 # F2: Falsy-zero config guards
 
-**Severity:** High | **Effort:** S | **Depends on:** — | **Status:** open
+**Severity:** High | **Effort:** S | **Depends on:** — | **Status:** done
 
 ## Problem
 
