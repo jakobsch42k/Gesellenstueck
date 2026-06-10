@@ -16,6 +16,8 @@
 #define DEFAULT_ROOF_OPEN_MS       1500UL  // Motor run time to open roof (auto mode)
 #define MAINTENANCE_OPEN_PULSE_MS  1500UL  // Pulse duration for manual open button
 #define DEFAULT_ROOF_CLOSE_TIMEOUT 5000UL  // Max wait for reed contact when closing
+#define ROOF_MIN_DWELL_MS         60000UL  // Min time in OPEN/CLOSED before next auto stroke (anti-oscillation)
+#define ROOF_REED_GRACE_MS          500UL  // Reed must physically release within this after open starts
 #define DEFAULT_IRRIGATE_MS       10000UL  // Pump run time per irrigation cycle
 #define DEFAULT_IRRIGATE_PAUSE   600000UL  // Diffusion pause between cycles
 

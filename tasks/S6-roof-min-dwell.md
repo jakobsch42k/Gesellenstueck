@@ -1,6 +1,6 @@
 # S6: Roof min-dwell + reed abort during opening
 
-**Severity:** High | **Effort:** M | **Depends on:** — | **Status:** open
+**Severity:** High | **Effort:** M | **Depends on:** — | **Status:** done
 
 ## Problem
 

@@ -5,10 +5,12 @@
 static RoofState     state           = ROOF_IDLE;
 static unsigned long stateEnteredAt  = 0;
 static bool          bmeStaleLatched = false;
+static bool          reedWarnedThisStroke = false;
 
 static void enterState(RoofState next) {
     state          = next;
     stateEnteredAt = millis();
+    reedWarnedThisStroke = false;
 }
 
 void roofControl_init(const LiveData& data, ErrorFlags& err) {
@@ -52,6 +54,10 @@ void roofControl_update(const LiveData& data, const Config& cfg, ErrorFlags& err
                 Serial.println("[roofControl] stale sensor data — opening roof");
                 break;
             }
+            // Min dwell: suppress temperature-driven strokes until the state
+            // has settled, so threshold noise can't chatter the motor. Stale
+            // safe-open (above) and manual commands are never delayed.
+            if (elapsed < ROOF_MIN_DWELL_MS) break;
             // Open if too warm
             if (data.tempC > cfg.tempTarget + cfg.tempHysteresis) {
                 roof_open();
@@ -61,6 +67,15 @@ void roofControl_update(const LiveData& data, const Config& cfg, ErrorFlags& err
             break;
 
         case ROOF_OPENING:
+            // Reed sanity check: contact should release shortly after the
+            // motor starts. If it still reads closed past the grace period,
+            // something is mechanically wrong (or the reed is sticky). Policy:
+            // log once and continue the stroke — aborting would brick the
+            // roof on a flaky contact; the warning makes the fault visible.
+            if (data.roofClosed && elapsed > ROOF_REED_GRACE_MS && !reedWarnedThisStroke) {
+                reedWarnedThisStroke = true;
+                Serial.println("[roofControl] WARNING: reed still closed while opening — check mechanism");
+            }
             // Opening is time-based (no open-position end stop)
             if (elapsed >= cfg.roofOpenDuration_ms) {
                 roof_stop();
@@ -72,6 +87,8 @@ void roofControl_update(const LiveData& data, const Config& cfg, ErrorFlags& err
         case ROOF_OPEN:
             // Hold open on stale data — never close on a frozen reading
             if (bmeStale) break;
+            // Min dwell — see ROOF_CLOSED case
+            if (elapsed < ROOF_MIN_DWELL_MS) break;
             // Close if cool enough
             if (data.tempC < cfg.tempTarget - cfg.tempHysteresis) {
                 roof_close();
