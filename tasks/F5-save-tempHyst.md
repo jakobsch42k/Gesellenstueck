@@ -1,6 +1,6 @@
 # F5: Send tempHyst on save
 
-**Severity:** Medium | **Effort:** S | **Depends on:** — | **Status:** open
+**Severity:** Medium | **Effort:** S | **Depends on:** — | **Status:** done
 
 ## Problem
 

@@ -521,6 +521,7 @@ async function saveConfig() {
     moisture: config.moisture.map((v) => Math.round(v)),
     luxTarget: Math.round(config.luxTarget),
     tempTarget: config.tempTarget,
+    tempHysteresis: config.tempHyst, // round-trip the band the UI displays
     lightProfile: config.lightProfile.map((v) => clamp(Math.round(v), 0, 100)),
   };
   try {
