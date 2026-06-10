@@ -35,7 +35,7 @@ void SystemController::init() {
 
     // 5. Control modules
     roofControl.init(liveData, errorFlags, actuators);
-    irrigation_init(actuators);
+    irrigation.init(actuators);
     lightManagement_init(actuators);
 
     // 6. Web backend — starts WiFi AP and HTTP server
@@ -106,7 +106,7 @@ void SystemController::run() {
 
     if (!criticalFault) {
         roofControl.update(liveData, config, errorFlags);
-        irrigation_update(liveData, config, errorFlags);
+        irrigation.update(liveData, config, errorFlags);
         lightManagement_update(liveData, config, errorFlags);
     } else if (errorFlags.MAINTENANCE_MODE && liveData.roofClosed && !prevRoofClosed) {
         actuators.roof_stop();

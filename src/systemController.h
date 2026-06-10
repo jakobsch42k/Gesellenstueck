@@ -4,6 +4,7 @@
 #include "actuators.h"
 #include "sensors.h"
 #include "roofControl.h"
+#include "irrigation.h"
 
 class SystemController {
 public:
@@ -16,7 +17,8 @@ private:
     ErrorFlags errorFlags = {};
     Actuators      actuators;
     Sensors        sensors;
-    RoofController roofControl;
+    RoofController       roofControl;
+    IrrigationController irrigation;
     bool           prevRoofClosed      = false;
     unsigned long  maintenanceOpenUntil = 0;
 

@@ -1,28 +1,25 @@
 #include "irrigation.h"
 #include "actuators.h"
 
-// Temporary wiring until this module becomes a class (A2): actuator access
-// goes through the SystemController-owned instance injected at init.
-static Actuators*      act            = nullptr;
+// Temporary shim backing for webBackend until the ControlStatus decoupling
+// step (A2 last step) — points at the SystemController-owned instance.
+static IrrigationController* instance = nullptr;
 
-static IrrigationState state          = IRRIGATION_IDLE;
-static unsigned long   stateEnteredAt = 0;
-static int             activeBed      = -1;
-
-static void enterState(IrrigationState next) {
+void IrrigationController::enterState(IrrigationState next) {
     state          = next;
     stateEnteredAt = millis();
 }
 
-void irrigation_init(Actuators& actuators) {
-    act = &actuators;
+void IrrigationController::init(Actuators& actuators) {
+    act      = &actuators;
+    instance = this;
     act->valve_closeAll();
     act->pump_off();
     enterState(IRRIGATION_IDLE);
     Serial.println("[irrigation] init OK");
 }
 
-void irrigation_update(const LiveData& data, const Config& cfg, ErrorFlags& err) {
+void IrrigationController::update(const LiveData& data, const Config& cfg, ErrorFlags& err) {
     // Hard stop: critical water level or emergency stop locks irrigation
     if (err.ERR_WATER_CRITICAL || err.EMERGENCY_STOP) {
         if (state != IRRIGATION_IDLE) {
@@ -84,9 +81,5 @@ void irrigation_update(const LiveData& data, const Config& cfg, ErrorFlags& err)
 }
 
 IrrigationState irrigation_getState() {
-    return state;
-}
-
-int irrigation_getActiveBed() {
-    return activeBed;
+    return instance ? instance->getState() : IRRIGATION_IDLE;
 }
