@@ -3,6 +3,7 @@
 #include "shared.h"
 #include "actuators.h"
 #include "sensors.h"
+#include "roofControl.h"
 
 class SystemController {
 public:
@@ -13,8 +14,9 @@ private:
     LiveData   liveData   = {};
     Config     config     = {};
     ErrorFlags errorFlags = {};
-    Actuators  actuators;
-    Sensors    sensors;
+    Actuators      actuators;
+    Sensors        sensors;
+    RoofController roofControl;
     bool           prevRoofClosed      = false;
     unsigned long  maintenanceOpenUntil = 0;
 

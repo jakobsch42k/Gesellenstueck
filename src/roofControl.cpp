@@ -2,23 +2,19 @@
 #include "actuators.h"
 #include "constants.h"
 
-// Temporary wiring until this module becomes a class (A2): actuator access
-// goes through the SystemController-owned instance injected at init.
-static Actuators*    act             = nullptr;
+// Temporary shim backing for webBackend until the ControlStatus decoupling
+// step (A2 last step) — points at the SystemController-owned instance.
+static RoofController* instance = nullptr;
 
-static RoofState     state           = ROOF_IDLE;
-static unsigned long stateEnteredAt  = 0;
-static bool          bmeStaleLatched = false;
-static bool          reedWarnedThisStroke = false;
-
-static void enterState(RoofState next) {
+void RoofController::enterState(RoofState next) {
     state          = next;
     stateEnteredAt = millis();
     reedWarnedThisStroke = false;
 }
 
-void roofControl_init(const LiveData& data, ErrorFlags& err, Actuators& actuators) {
-    act = &actuators;
+void RoofController::init(const LiveData& data, ErrorFlags& err, Actuators& actuators) {
+    act      = &actuators;
+    instance = this;
     // Set initial state from reed contact so motor doesn't run on reboot
     if (data.roofClosed) {
         enterState(ROOF_CLOSED);
@@ -29,7 +25,7 @@ void roofControl_init(const LiveData& data, ErrorFlags& err, Actuators& actuator
     }
 }
 
-void roofControl_update(const LiveData& data, const Config& cfg, ErrorFlags& err) {
+void RoofController::update(const LiveData& data, const Config& cfg, ErrorFlags& err) {
     // Error state: motor stopped, no transitions until acknowledged
     if (state == ROOF_ERROR) return;
 
@@ -125,18 +121,18 @@ void roofControl_update(const LiveData& data, const Config& cfg, ErrorFlags& err
     }
 }
 
-RoofState roofControl_getState() {
-    return state;
-}
-
-void roofControl_setState(RoofState s) {
+void RoofController::setState(RoofState s) {
     enterState(s);
 }
 
-void roofControl_ackError(ErrorFlags& err) {
+void RoofController::ackError(ErrorFlags& err) {
     if (state == ROOF_ERROR) {
         err.ERR_ROOF_TIMEOUT = false;
         enterState(ROOF_IDLE);
         Serial.println("[roofControl] error acknowledged — returning to IDLE");
     }
+}
+
+RoofState roofControl_getState() {
+    return instance ? instance->getState() : ROOF_IDLE;
 }

@@ -34,7 +34,7 @@ void SystemController::init() {
     sensors.init(liveData, errorFlags, config);
 
     // 5. Control modules
-    roofControl_init(liveData, errorFlags, actuators);
+    roofControl.init(liveData, errorFlags, actuators);
     irrigation_init(actuators);
     lightManagement_init(actuators);
 
@@ -105,16 +105,16 @@ void SystemController::run() {
                          errorFlags.MAINTENANCE_MODE;
 
     if (!criticalFault) {
-        roofControl_update(liveData, config, errorFlags);
+        roofControl.update(liveData, config, errorFlags);
         irrigation_update(liveData, config, errorFlags);
         lightManagement_update(liveData, config, errorFlags);
     } else if (errorFlags.MAINTENANCE_MODE && liveData.roofClosed && !prevRoofClosed) {
         actuators.roof_stop();
-        roofControl_setState(ROOF_CLOSED);
+        roofControl.setState(ROOF_CLOSED);
         maintenanceOpenUntil = 0;
     } else if (maintenanceOpenUntil && millis() >= maintenanceOpenUntil) {
         actuators.roof_stop();
-        roofControl_setState(ROOF_OPEN);
+        roofControl.setState(ROOF_OPEN);
         maintenanceOpenUntil = 0;
     }
     prevRoofClosed = liveData.roofClosed;
@@ -146,18 +146,18 @@ bool SystemController::handleManualCommand(String cmd, int val) {
     else if (cmd == "valve_closeAll") actuators.valve_closeAll();
     else if (cmd == "roof_open") {
         actuators.roof_open();
-        roofControl_setState(ROOF_OPENING);
+        roofControl.setState(ROOF_OPENING);
         maintenanceOpenUntil = millis() + MAINTENANCE_OPEN_PULSE_MS;
     }
     else if (cmd == "roof_close") {
         if (!liveData.roofClosed) {
             actuators.roof_close();
-            roofControl_setState(ROOF_CLOSING);
+            roofControl.setState(ROOF_CLOSING);
         } else Serial.println("[systemController] roof_close ignored — reed already closed");
     }
     else if (cmd == "roof_stop") {
         actuators.roof_stop();
-        roofControl_setState(ROOF_IDLE);
+        roofControl.setState(ROOF_IDLE);
     }
     else if (cmd == "led_pwm")        actuators.led_grow_setPWM(constrain(val, 0, 255));
     else if (cmd == "emergency_stop") {
@@ -189,7 +189,7 @@ void SystemController::handleAckErrors() {
     errorFlags.EMERGENCY_STOP     = false;
     errorFlags.lastErrorMessage   = "";
 
-    roofControl_ackError(errorFlags);
+    roofControl.ackError(errorFlags);
     lightManagement_resetPWM();
 
     Serial.println("[systemController] errors acknowledged");
