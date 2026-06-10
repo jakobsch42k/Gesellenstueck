@@ -1,6 +1,6 @@
 # S5: Clamp manual LED PWM
 
-**Severity:** High | **Effort:** S | **Depends on:** — | **Status:** open
+**Severity:** High | **Effort:** S | **Depends on:** — | **Status:** done
 
 ## Problem
 

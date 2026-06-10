@@ -159,7 +159,7 @@ bool SystemController::handleManualCommand(String cmd, int val) {
         roof_stop();
         roofControl_setState(ROOF_IDLE);
     }
-    else if (cmd == "led_pwm")        led_grow_setPWM(val);
+    else if (cmd == "led_pwm")        led_grow_setPWM(constrain(val, 0, 255));
     else if (cmd == "emergency_stop") {
         errorFlags.EMERGENCY_STOP    = true;
         errorFlags.lastErrorMessage  = "Emergency stop triggered via web UI";

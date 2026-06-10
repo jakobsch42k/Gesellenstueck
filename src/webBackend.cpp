@@ -378,6 +378,18 @@ static void handleManual() {
         return;
     }
 
+    // Bound-check value-carrying commands at the input boundary. Out-of-range
+    // values are rejected with 400, consistent with the allowlist above —
+    // downstream clamps are defense in depth, not the contract.
+    if (cmd == "led_pwm" && (val < 0 || val > 255)) {
+        server.send(400, "application/json", "{\"error\":\"value out of range (0-255)\"}");
+        return;
+    }
+    if ((cmd == "valve_open" || cmd == "valve_close") && (val < 1 || val > 5)) {
+        server.send(400, "application/json", "{\"error\":\"value out of range (1-5)\"}");
+        return;
+    }
+
     bool accepted = true;
     if (_manualCtrlCb) accepted = _manualCtrlCb(cmd, val);
     if (!accepted) {
