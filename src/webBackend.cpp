@@ -1,6 +1,7 @@
 #include "webBackend.h"
 #include "constants.h"
 #include "fileManager.h"
+#include "logger.h"
 #include <WiFi.h>
 #include <WebServer.h>
 #include <DNSServer.h>
@@ -209,6 +210,26 @@ static void handleData() {
 
     addErrorFlags(doc);
 
+    String json;
+    serializeJson(doc, json);
+    server.send(200, "application/json", json);
+}
+
+// Event journal — served from the RAM ring (oldest→newest), never from flash,
+// so the request path does no file I/O. The UI renders newest-first.
+static void handleLogs() {
+    JsonDocument doc;
+    JsonArray arr = doc.to<JsonArray>();
+    uint8_t n = logger.count();
+    for (uint8_t i = 0; i < n; i++) {
+        const LogEntry& e = logger.entry(i);
+        JsonObject o = arr.add<JsonObject>();
+        o["t"]   = e.timeOfDay;          // seconds since midnight (controller clock)
+        o["up"]  = e.uptimeMs;           // millis() at log time
+        o["lvl"] = Logger::levelName(e.level);
+        o["tag"] = e.tag;
+        o["msg"] = e.msg;
+    }
     String json;
     serializeJson(doc, json);
     server.send(200, "application/json", json);
@@ -572,6 +593,7 @@ void webBackend_init(const LiveData& data, Config& config, ErrorFlags& err,
     server.on("/script.js",   HTTP_GET, []() { serveFile("/script.js");  });
 
     server.on("/data.json",    HTTP_GET,    handleData);
+    server.on("/logs.json",    HTTP_GET,    handleLogs);
     server.on("/systemStatus", HTTP_GET,    handleSystemStatus);
     server.on("/loadConfig",   HTTP_GET,    handleLoadConfig);
     server.on("/saveConfig",   HTTP_POST,   handleSaveConfig);

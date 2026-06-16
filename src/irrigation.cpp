@@ -1,5 +1,6 @@
 #include "irrigation.h"
 #include "actuators.h"
+#include "logger.h"
 
 void IrrigationController::enterState(IrrigationState next) {
     state          = next;
@@ -11,7 +12,7 @@ void IrrigationController::init(Actuators& actuators) {
     act->valve_closeAll();
     act->pump_off();
     enterState(IRRIGATION_IDLE);
-    Serial.println("[irrigation] init OK");
+    logger.info("irrigation", "init OK");
 }
 
 void IrrigationController::update(const LiveData& data, const Config& cfg, ErrorFlags& err) {
@@ -22,7 +23,7 @@ void IrrigationController::update(const LiveData& data, const Config& cfg, Error
             act->valve_closeAll();
             enterState(IRRIGATION_IDLE);
             activeBed = -1;
-            Serial.println("[irrigation] locked — water critical or emergency stop");
+            logger.warn("irrigation", "locked — water critical or emergency stop");
         }
         return;
     }
@@ -45,9 +46,8 @@ void IrrigationController::update(const LiveData& data, const Config& cfg, Error
                     act->valve_open(activeBed);
                     act->pump_on(cfg.pumpPwm);
                     enterState(IRRIGATION_PUMPING);
-                    Serial.println("[irrigation] bed " + String(i + 1) +
-                                   " dry (" + String(data.soilPerc[i]) +
-                                   "%) — pumping");
+                    logger.info("irrigation", "bed " + String(i + 1) +
+                                " dry (" + String(data.soilPerc[i]) + "%) — pumping");
                     break;
                 }
             }
@@ -59,8 +59,8 @@ void IrrigationController::update(const LiveData& data, const Config& cfg, Error
                 act->valve_close(activeBed);
                 act->pump_off();
                 enterState(IRRIGATION_PAUSING);
-                Serial.println("[irrigation] bed " + String(activeBed + 1) +
-                               " — pump done, diffusion pause");
+                logger.info("irrigation", "bed " + String(activeBed + 1) +
+                            " — pump done, diffusion pause");
             }
             break;
 
@@ -69,7 +69,7 @@ void IrrigationController::update(const LiveData& data, const Config& cfg, Error
                 activeBed = -1;
                 enterState(IRRIGATION_IDLE);
                 // IDLE will re-check moisture on next call
-                Serial.println("[irrigation] pause done — re-checking moisture");
+                logger.info("irrigation", "pause done — re-checking moisture");
             }
             break;
     }

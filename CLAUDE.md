@@ -85,6 +85,7 @@ Each module takes `LiveData*`, `Config*`, `ErrorFlags*` in its `init()` and chec
 `src/webBackend.cpp` — synchronous `WebServer` (ESP32 core) on port 80. Key routes:
 
 - `GET /data.json` → JSON live sensor + control state (tempC, humPerc, lux, luxSmoothed, soilPerc[5], waterLow, waterCritical [bool, true = sufficient], roofClosed, timeOfDay, pumpStatus, MAINTENANCE_MODE, ERR_ROOF_TIMEOUT, ERR_WATER_CRITICAL, ERR_FS_MOUNT, EMERGENCY_STOP, ERR_SENSOR_BME, ERR_SENSOR_BH, lastErrorMessage)
+- `GET /logs.json` → event journal as JSON array, oldest→newest: `[{t, up, lvl, tag, msg}]` (t = secs since midnight, up = millis() at log time, lvl = DEBUG/INFO/WARN/ERROR). Served from the RAM ring, not flash.
 - `GET /systemStatus` → uptime, free heap, CPU freq, WiFi client count
 - `GET /config` / `POST /saveConfig` / `POST /importConfig` → config read/write (saveConfig accepts partial JSON; importConfig replaces entire config)
 - `POST /manual` → manual actuator commands
@@ -99,6 +100,10 @@ Web UI assets (`data/`) are served from LittleFS. `script.js` polls `/data.json`
 `src/fileManager.cpp` manages `/config.json` with 3 rolling backups (`.bak1/2/3`). Writes go to a temp file first, then atomic rename — prevents corruption on power loss. On corrupt/missing config, defaults from `constants.h` are written. A version field (`CONFIG_VERSION`) triggers defaults on schema changes.
 
 Config exposes timing overrides: `roofOpenDuration_ms`, `roofCloseTimeout_ms`, `irrigationDuration_ms`, `irrigationPause_ms`.
+
+### Logging
+
+`src/logger.cpp` — global singleton `Logger logger` (deliberate exception to the pointer-passing convention; logging is cross-cutting). Levels DEBUG/INFO/WARN/ERROR. Two sinks: Serial (always, keeps the `[tag] message` convention) and a LittleFS journal (`INFO`+ only). Persisted to `/log.txt` with rolling backups (`.bak1/2/3`), rotated at `LOG_MAX_BYTES` (64 KB) using the same shape as `backupConfig()`. A RAM ring (`LOG_RING_SIZE`) feeds `/logs.json` so HTTP handlers never read flash; the ring is seeded from the file tail on boot so history survives reboot. Consecutive identical entries are deduped, and callers log faults on transitions (edge-logging) — both guard against per-loop flash spam. Timestamps use `timeOfDay` (no RTC: read 00:00:00 until `/setTime`, wrap daily); `uptimeMs` gives monotonic ordering. Init order in `systemController`: `logger.init(fsOk)` right after the LittleFS mount, then `logger.setTimeSource(&liveData)` after `sensors.init()`.
 
 ## Embedded/Control Logic
 

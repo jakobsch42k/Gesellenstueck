@@ -1,5 +1,6 @@
 #include "sensors.h"
 #include "constants.h"
+#include "logger.h"
 #include "pins.h"
 #include <Wire.h>
 
@@ -19,20 +20,20 @@ void Sensors::init(LiveData& data, ErrorFlags& err, const Config& cfg) {
         if (!bme.begin(BME_I2C_ADDR_ALT)) {
             err.ERR_SENSOR_BME = true;
             err.lastErrorMessage = "BME280 not found on I2C";
-            Serial.println("[sensors] ERROR: BME280 not found");
+            logger.error("sensors", "BME280 not found on I2C");
         }
     }
     if (!err.ERR_SENSOR_BME) {
-        Serial.println("[sensors] BME280 OK");
+        logger.info("sensors", "BME280 OK");
     }
 
     // BH1750
     if (!lightMeter.begin(BH1750::CONTINUOUS_HIGH_RES_MODE)) {
         err.ERR_SENSOR_BH = true;
         err.lastErrorMessage = "BH1750 not found on I2C";
-        Serial.println("[sensors] ERROR: BH1750 not found");
+        logger.error("sensors", "BH1750 not found on I2C");
     } else {
-        Serial.println("[sensors] BH1750 OK");
+        logger.info("sensors", "BH1750 OK");
     }
 
     // Digital inputs — external pull-down resistors on PCB, no internal pull needed
@@ -111,10 +112,17 @@ void Sensors::update(LiveData& data, ErrorFlags& err, const Config& cfg) {
         data.soilRaw[i] = raw;
 
         if (raw < SOIL_ADC_MIN || raw > SOIL_ADC_MAX) {
+            // Edge-log: only on the false→true transition so a persistently
+            // faulty sensor doesn't write a journal line every loop pass.
+            if (!err.ERR_SOIL[i]) {
+                logger.warn("sensors", "soil sensor " + String(i + 1) +
+                            " reading implausible (raw " + String(raw) + ")");
+            }
             err.ERR_SOIL[i] = true;
-            Serial.println("[sensors] WARNING: soil sensor " + String(i + 1) +
-                           " out of range (" + String(raw) + ")");
         } else {
+            if (err.ERR_SOIL[i]) {
+                logger.info("sensors", "soil sensor " + String(i + 1) + " reading recovered");
+            }
             err.ERR_SOIL[i] = false;
             int perc = map(raw, cfg.soilDryValue, cfg.soilWetValue, 0, 100);
             data.soilPerc[i] = constrain(perc, 0, 100);

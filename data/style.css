@@ -242,3 +242,17 @@ select.sel { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w
 
 /* ── Offline badge ─────────────────────────────────────────── */
 .mode-badge.offline { border-color:var(--rose); color:var(--rose); background:var(--rose-t); }
+
+/* ── Event journal ─────────────────────────────────────────── */
+.log-row { padding:9px 0; border-bottom:1px solid var(--line); }
+.log-row:last-child { border-bottom:none; }
+.log-row.warn { box-shadow:inset 3px 0 0 var(--sun);  padding-left:9px; }
+.log-row.err  { box-shadow:inset 3px 0 0 var(--rose); padding-left:9px; }
+.log-meta { display:flex; align-items:center; gap:8px; margin-bottom:3px; }
+.log-time { font-size:11px; font-weight:700; font-variant-numeric:tabular-nums; color:var(--ink-3); }
+.log-lvl { font-size:9px; font-weight:800; letter-spacing:0.07em; padding:1px 6px; border-radius:100px; border:1px solid var(--line); color:var(--ink-2); text-transform:uppercase; }
+.log-lvl.on   { color:var(--leaf); border-color:var(--leaf-t); }
+.log-lvl.warn { color:var(--sun);  border-color:var(--sun-t); }
+.log-lvl.err  { color:var(--rose); border-color:var(--rose-t); }
+.log-tag { font-size:10px; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; color:var(--ink-3); }
+.log-msg { font-size:13px; color:var(--ink); line-height:1.4; word-break:break-word; }

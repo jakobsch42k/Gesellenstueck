@@ -75,6 +75,17 @@ constexpr uint8_t NUM_BEDS = 5;   // Raised beds: soil sensors, valves, moisture
 #define PLANTS_PATH            "/plants.json"
 #define PLANTS_TMP_PATH        "/plants.tmp"
 
+// ── Logging ──────────────────────────────────────────────────────────────────
+// Event/error journal persisted to LittleFS with rolling backups — same rotation
+// shape as the config backups. Only INFO+ is written to flash; DEBUG stays on
+// Serial. The RAM ring feeds /logs.json so HTTP requests never touch flash.
+#define LOG_PATH               "/log.txt"
+#define LOG_BAK1_PATH          "/log.bak1"
+#define LOG_BAK2_PATH          "/log.bak2"
+#define LOG_BAK3_PATH          "/log.bak3"
+constexpr uint32_t LOG_MAX_BYTES = 65536UL; // 64 KB cap before a rotate
+constexpr uint8_t  LOG_RING_SIZE = 40;      // RAM entries exposed via /logs.json
+
 // ── Web Input Bounds (config validation) ─────────────────────────────────────
 // Guard rails for values written via /saveConfig and /importConfig so a bad
 // client or corrupt import cannot, e.g., make the pump run effectively forever.

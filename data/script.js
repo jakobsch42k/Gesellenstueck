@@ -12,6 +12,7 @@
      POST /saveConfig    {moisture[5], luxTarget, tempTarget, lightProfile[24]}
      GET  /getPlants  ·  POST /addPlant  ·  DELETE /deletePlant
      POST /manual {command,value?}  ·  POST /ackErrors  ·  POST /setTime {timestamp}
+     GET  /logs.json     [{ t, up, lvl, tag, msg }]  (oldest→newest; t = secs since midnight)
    ============================================================ */
 'use strict';
 const $ = (s, r = document) => r.querySelector(s);
@@ -73,6 +74,7 @@ $$('.tab').forEach((t) => t.addEventListener('click', () => {
   $$('.tab').forEach((x) => x.classList.toggle('active', x === t));
   $$('.view').forEach((v) => v.classList.toggle('active', v.id === t.dataset.tab));
   $('.scroll').scrollTop = 0;
+  if (t.dataset.tab === 'logs') fetchLogs(); // pull the journal on first open
 }));
 
 /* ---- sparkline (SVG path) ---------------------------------- */
@@ -397,6 +399,9 @@ async function pollOnce() {
   $('#led-fault').className = 'led' + ((ef && !/^none$/i.test(ef)) ? ' err' : '');
 
   renderDash(); renderDiag(); renderLiveBeds();
+  // keep the journal live while the Logs tab is open
+  const logsView = $('#logs');
+  if (logsView && logsView.classList.contains('active')) fetchLogs();
 }
 
 /* live moisture in planting-plan (without rebuilding controls) */
@@ -408,6 +413,39 @@ function renderLiveBeds() {
     fill.style.width = m + '%'; fill.className = 'moist-fill' + (low ? ' low' : '');
     if (val) { val.textContent = m; val.parentElement.style.color = low ? 'var(--terra)' : 'var(--ink)'; }
   });
+}
+
+/* ============================================================
+   EVENT JOURNAL  (/logs.json)
+   ============================================================ */
+/* seconds-since-midnight → HH:MM:SS (controller clock; no date on device) */
+function logClock(t) {
+  const s = ((+t % 86400) + 86400) % 86400;
+  const p = (n) => String(n).padStart(2, '0');
+  return p(Math.floor(s / 3600)) + ':' + p(Math.floor(s / 60) % 60) + ':' + p(s % 60);
+}
+const LOG_CLS = { ERROR: 'err', WARN: 'warn' }; // INFO/DEBUG fall through to 'on'
+async function fetchLogs() {
+  const host = $('#log-list');
+  if (!host) return;
+  try {
+    const arr = await fetchT('/logs.json').then((r) => r.json());
+    if (!Array.isArray(arr) || !arr.length) {
+      host.innerHTML = '<div class="note">No events logged yet.</div>';
+      return;
+    }
+    host.innerHTML = arr.slice().reverse().map((e) => {
+      const lvl = String(e.lvl || 'INFO').toUpperCase();
+      const cls = LOG_CLS[lvl] || 'on';
+      return `<div class="log-row ${cls}"><div class="log-meta">` +
+        `<span class="log-time">${logClock(e.t || 0)}</span>` +
+        `<span class="log-lvl ${cls}">${esc(lvl)}</span>` +
+        `<span class="log-tag">${esc(e.tag || '')}</span></div>` +
+        `<div class="log-msg">${esc(e.msg || '')}</div></div>`;
+    }).join('');
+  } catch (err) {
+    host.innerHTML = '<div class="note">Could not load logs — check connection.</div>';
+  }
 }
 
 /* ============================================================
@@ -706,6 +744,9 @@ function init() {
   $('#led-apply').addEventListener('click', () => { manual('led_pwm', +$('#led-slider').value); toast('Brightness applied'); });
   $('#emerg-btn').addEventListener('click', () => { manual('emergency_stop'); manual('maintenance_on'); maintenance = true; updateMaintUI(); toast('EMERGENCY STOP', true); });
   $('#ack-btn').addEventListener('click', async () => { try { await fetch('/ackErrors', { method: 'POST', headers: { 'Content-Type': 'application/json' } }); toast('Errors reset'); } catch (e) { toast('Reset failed', true); } });
+
+  // logs
+  $('#logs-refresh').addEventListener('click', fetchLogs);
 
   // time
   $('#set-time-btn').addEventListener('click', () => {

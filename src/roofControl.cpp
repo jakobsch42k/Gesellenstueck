@@ -1,6 +1,7 @@
 #include "roofControl.h"
 #include "actuators.h"
 #include "constants.h"
+#include "logger.h"
 
 void RoofController::enterState(RoofState next) {
     state          = next;
@@ -13,10 +14,10 @@ void RoofController::init(const LiveData& data, ErrorFlags& err, Actuators& actu
     // Set initial state from reed contact so motor doesn't run on reboot
     if (data.roofClosed) {
         enterState(ROOF_CLOSED);
-        Serial.println("[roofControl] init — roof CLOSED");
+        logger.info("roofControl", "init — roof CLOSED");
     } else {
         enterState(ROOF_OPEN);
-        Serial.println("[roofControl] init — roof OPEN");
+        logger.info("roofControl", "init — roof OPEN");
     }
 }
 
@@ -34,9 +35,9 @@ void RoofController::update(const LiveData& data, const Config& cfg, ErrorFlags&
     bool bmeStale = (millis() - data.lastBmeReadMs) > SENSOR_STALE_TIMEOUT_MS;
     if (bmeStale != bmeStaleLatched) {
         bmeStaleLatched = bmeStale;
-        Serial.println(bmeStale
-            ? "[roofControl] BME280 data stale — safe-opening roof, regulation suspended"
-            : "[roofControl] BME280 data fresh — regulation resumed");
+        logger.warn("roofControl", bmeStale
+            ? "BME280 data stale — safe-opening roof, regulation suspended"
+            : "BME280 data fresh — regulation resumed");
     }
 
     switch (state) {
@@ -47,7 +48,7 @@ void RoofController::update(const LiveData& data, const Config& cfg, ErrorFlags&
             if (bmeStale) {
                 act->roof_open(cfg.roofOpenPwm);
                 enterState(ROOF_OPENING);
-                Serial.println("[roofControl] stale sensor data — opening roof");
+                logger.info("roofControl", "stale sensor data — opening roof");
                 break;
             }
             // Min dwell: suppress temperature-driven strokes until the state
@@ -58,7 +59,7 @@ void RoofController::update(const LiveData& data, const Config& cfg, ErrorFlags&
             if (data.tempC > cfg.tempTarget + cfg.tempHysteresis) {
                 act->roof_open(cfg.roofOpenPwm);
                 enterState(ROOF_OPENING);
-                Serial.println("[roofControl] too warm — opening roof");
+                logger.info("roofControl", "too warm — opening roof");
             }
             break;
 
@@ -70,13 +71,13 @@ void RoofController::update(const LiveData& data, const Config& cfg, ErrorFlags&
             // roof on a flaky contact; the warning makes the fault visible.
             if (data.roofClosed && elapsed > ROOF_REED_GRACE_MS && !reedWarnedThisStroke) {
                 reedWarnedThisStroke = true;
-                Serial.println("[roofControl] WARNING: reed still closed while opening — check mechanism");
+                logger.warn("roofControl", "reed still closed while opening — check mechanism");
             }
             // Opening is time-based (no open-position end stop)
             if (elapsed >= cfg.roofOpenDuration_ms) {
                 act->roof_stop();
                 enterState(ROOF_OPEN);
-                Serial.println("[roofControl] roof open");
+                logger.info("roofControl", "roof open");
             }
             break;
 
@@ -89,7 +90,7 @@ void RoofController::update(const LiveData& data, const Config& cfg, ErrorFlags&
             if (data.tempC < cfg.tempTarget - cfg.tempHysteresis) {
                 act->roof_close(cfg.roofClosePwm);
                 enterState(ROOF_CLOSING);
-                Serial.println("[roofControl] cool enough — closing roof");
+                logger.info("roofControl", "cool enough — closing roof");
             }
             break;
 
@@ -98,7 +99,7 @@ void RoofController::update(const LiveData& data, const Config& cfg, ErrorFlags&
             if (data.roofClosed) {
                 act->roof_stop();
                 enterState(ROOF_CLOSED);
-                Serial.println("[roofControl] roof closed — reed contact OK");
+                logger.info("roofControl", "roof closed — reed contact OK");
                 break;
             }
             // Timeout: reed never triggered
@@ -107,7 +108,7 @@ void RoofController::update(const LiveData& data, const Config& cfg, ErrorFlags&
                 err.ERR_ROOF_TIMEOUT    = true;
                 err.lastErrorMessage    = "Roof close timeout — reed not reached";
                 enterState(ROOF_ERROR);
-                Serial.println("[roofControl] ERROR: close timeout");
+                logger.error("roofControl", "close timeout — reed not reached");
             }
             break;
 
@@ -124,6 +125,6 @@ void RoofController::ackError(ErrorFlags& err) {
     if (state == ROOF_ERROR) {
         err.ERR_ROOF_TIMEOUT = false;
         enterState(ROOF_IDLE);
-        Serial.println("[roofControl] error acknowledged — returning to IDLE");
+        logger.info("roofControl", "error acknowledged — returning to IDLE");
     }
 }

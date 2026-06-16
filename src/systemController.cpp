@@ -8,6 +8,7 @@
 #include "lightManagement.h"
 #include "webBackend.h"
 #include "constants.h"
+#include "logger.h"
 #include <esp_task_wdt.h>
 
 void SystemController::init() {
@@ -23,15 +24,21 @@ void SystemController::init() {
     display_init();
 
     // 3. Filesystem — config must be loaded before modules need it
-    if (!fileManager_init()) {
+    bool fsOk = fileManager_init();
+    if (!fsOk) {
         errorFlags.ERR_FS_MOUNT = true;
         Serial.println("[systemController] WARNING: filesystem unavailable");
     } else {
         loadConfig(config);
     }
 
+    // 3b. Logger — needs LittleFS for persistence; stays RAM-only on mount fail.
+    logger.init(fsOk);
+    if (!fsOk) logger.error("systemController", "filesystem unavailable — logs and config will not persist");
+
     // 4. Sensors — populates liveData with initial values
     sensors.init(liveData, errorFlags, config);
+    logger.setTimeSource(&liveData); // now timestamps follow the controller clock
 
     // 5. Control modules
     roofControl.init(liveData, errorFlags, actuators);
@@ -53,7 +60,7 @@ void SystemController::init() {
     esp_task_wdt_add(NULL);
 
     errorFlags.MAINTENANCE_MODE = true;
-    Serial.println("[systemController] boot complete — starting in maintenance mode");
+    logger.info("systemController", "boot complete — starting in maintenance mode");
 }
 
 void SystemController::run() {
@@ -69,7 +76,7 @@ void SystemController::run() {
     if (!liveData.waterCritical && !errorFlags.ERR_WATER_CRITICAL) {
         errorFlags.ERR_WATER_CRITICAL = true;
         errorFlags.lastErrorMessage   = "Water level critical — pump and valves locked";
-        Serial.println("[systemController] ERR_WATER_CRITICAL latched — tank empty");
+        logger.error("systemController", "water level critical latched — pump and valves locked");
     }
 
     // 2. Critical fault handling — takes priority over everything.
@@ -132,15 +139,15 @@ void SystemController::run() {
 // ── Manual command handler (called from webBackend /manual callback) ──────────
 
 bool SystemController::handleManualCommand(String cmd, int val) {
-    Serial.println("[systemController] manual command: " + cmd +
-                   (val ? " val=" + String(val) : ""));
+    logger.info("systemController", "manual command: " + cmd +
+                (val ? " val=" + String(val) : ""));
 
     if (cmd == "pump_on") {
         // Manual mode bypasses regulation, not physics — never run the pump
         // against an empty tank. Mirrors the auto-latch polarity in run():
         // waterCritical == true means water is sufficient.
         if (!liveData.waterCritical || errorFlags.ERR_WATER_CRITICAL) {
-            Serial.println("[systemController] manual pump_on refused — water critical");
+            logger.warn("systemController", "manual pump_on refused — water critical");
             return false;
         }
         actuators.pump_on(config.pumpPwm);
@@ -169,19 +176,20 @@ bool SystemController::handleManualCommand(String cmd, int val) {
         errorFlags.EMERGENCY_STOP    = true;
         errorFlags.lastErrorMessage  = "Emergency stop triggered via web UI";
         actuators.emergency_stop_all();
+        logger.warn("systemController", "emergency stop triggered via web UI");
     }
     else if (cmd == "maintenance_on") {
         errorFlags.MAINTENANCE_MODE = true;
         actuators.roof_stop();
-        Serial.println("[systemController] maintenance mode ON");
+        logger.info("systemController", "maintenance mode ON");
     }
     else if (cmd == "maintenance_off") {
         errorFlags.MAINTENANCE_MODE = false;
         lightControl.resetPWM();
-        Serial.println("[systemController] maintenance mode OFF");
+        logger.info("systemController", "maintenance mode OFF");
     }
     else {
-        Serial.println("[systemController] unknown manual command: " + cmd);
+        logger.warn("systemController", "unknown manual command: " + cmd);
     }
     return true;
 }
@@ -197,5 +205,5 @@ void SystemController::handleAckErrors() {
     roofControl.ackError(errorFlags);
     lightControl.resetPWM();
 
-    Serial.println("[systemController] errors acknowledged");
+    logger.info("systemController", "errors acknowledged — faults cleared");
 }
