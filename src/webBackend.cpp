@@ -235,6 +235,24 @@ static void handleLogs() {
     server.send(200, "application/json", json);
 }
 
+// Full persisted journal as a file download. Streams /log.txt straight from
+// flash with an attachment header so the browser saves it. This is the complete
+// history (more than the RAM ring exposes via /logs.json).
+static void handleLogDownload() {
+    if (!LittleFS.exists(LOG_PATH)) {
+        server.send(404, "text/plain", "no log file yet");
+        return;
+    }
+    File f = LittleFS.open(LOG_PATH, "r");
+    if (!f) {
+        server.send(500, "text/plain", "could not open log file");
+        return;
+    }
+    server.sendHeader("Content-Disposition", "attachment; filename=hochbeet-log.txt");
+    server.streamFile(f, "text/plain");
+    f.close();
+}
+
 static void handleSystemStatus() {
     JsonDocument doc;
 
@@ -594,6 +612,7 @@ void webBackend_init(const LiveData& data, Config& config, ErrorFlags& err,
 
     server.on("/data.json",    HTTP_GET,    handleData);
     server.on("/logs.json",    HTTP_GET,    handleLogs);
+    server.on("/log.txt",      HTTP_GET,    handleLogDownload);
     server.on("/systemStatus", HTTP_GET,    handleSystemStatus);
     server.on("/loadConfig",   HTTP_GET,    handleLoadConfig);
     server.on("/saveConfig",   HTTP_POST,   handleSaveConfig);

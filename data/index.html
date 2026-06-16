@@ -305,7 +305,10 @@
         <div class="card">
           <div class="row between mb10">
             <span class="card-h"><svg class="ic" data-ic="logs"></svg> Recent events</span>
-            <button class="btn sm" id="logs-refresh">Refresh</button>
+            <div class="row" style="gap:7px">
+              <a class="btn sm" href="/log.txt" download="hochbeet-log.txt">Download</a>
+              <button class="btn sm" id="logs-refresh">Refresh</button>
+            </div>
           </div>
           <div id="log-list"><div class="note">Loading…</div></div>
         </div>
