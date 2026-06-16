@@ -48,6 +48,13 @@ constexpr uint8_t NUM_BEDS = 5;   // Raised beds: soil sensors, valves, moisture
 // 30 s ≫ normal read cadence (every loop pass); tolerates transient I2C hiccups.
 #define SENSOR_STALE_TIMEOUT_MS    30000UL
 
+// ── Digital input debounce ───────────────────────────────────────────────────
+// Float switches and reed contact have no hardware filter. A raw read must hold
+// steady this long before it commits to LiveData. Rejects inductive-switching
+// noise (pump/valves/roof motor) that otherwise flickered the warning LED and
+// could glitch-latch ERR_WATER_CRITICAL. Well below real fill/drain timescales.
+#define DIGITAL_DEBOUNCE_MS           50UL
+
 // ── Light Management ─────────────────────────────────────────────────────────
 #define LUX_SAMPLE_INTERVAL_MS      120   // BH1750 high-res integration time
 #define LUX_EMA_ALPHA               0.15f // EMA weight per sample (≈6-sample window ≈ 700 ms)

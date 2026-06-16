@@ -46,6 +46,12 @@ void Sensors::init(LiveData& data, ErrorFlags& err, const Config& cfg) {
     data.waterCritical = true;
     data.roofClosed    = false;
 
+    // Seed debouncers to the same safe defaults so the first committed value
+    // can't be a transient noise spike.
+    waterLowInput.seed(true);
+    waterCriticalInput.seed(true);
+    reedInput.seed(false);
+
     for (int i = 0; i < NUM_BEDS; i++) {
         data.soilRaw[i]  = 0;
         data.soilPerc[i] = 0;
@@ -130,9 +136,16 @@ void Sensors::update(LiveData& data, ErrorFlags& err, const Config& cfg) {
     }
 
     // ── Digital inputs ───────────────────────────────────────────────────────
-    data.waterLow      = !digitalRead(WATER_LOW_PIN);      // ext pull-down; HIGH = closed = empty, LOW = open = sufficient
-    data.waterCritical = !digitalRead(WATER_CRITICAL_PIN); // ext pull-down; HIGH = closed = empty, LOW = open = sufficient
-    data.roofClosed = digitalRead(REED_PIN);                 // HIGH = closed
+    // Raw reads (ext pull-down; HIGH = closed). No hardware filter, so each is
+    // debounced before committing to LiveData — see DIGITAL_DEBOUNCE_MS.
+    now = millis();
+    bool waterLowRaw      = !digitalRead(WATER_LOW_PIN);      // HIGH = closed = empty, LOW = open = sufficient
+    bool waterCriticalRaw = !digitalRead(WATER_CRITICAL_PIN); // HIGH = closed = empty, LOW = open = sufficient
+    bool reedRaw          = digitalRead(REED_PIN);            // HIGH = closed
+
+    data.waterLow      = waterLowInput.update(waterLowRaw, now, DIGITAL_DEBOUNCE_MS);
+    data.waterCritical = waterCriticalInput.update(waterCriticalRaw, now, DIGITAL_DEBOUNCE_MS);
+    data.roofClosed    = reedInput.update(reedRaw, now, DIGITAL_DEBOUNCE_MS);
 }
 
 // ── Time setter (called by webBackend /setTime) ───────────────────────────────

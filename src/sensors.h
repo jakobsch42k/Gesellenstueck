@@ -14,6 +14,37 @@ public:
     void setTime(LiveData& data, unsigned long unixTimestamp);
 
 private:
+    // Time-based debounce for a noisy digital input. The committed value only
+    // changes after a new raw read holds steady for stableMs; transient spikes
+    // (motor/valve EMI on unshielded switch wiring) are rejected.
+    struct DebouncedInput {
+        bool          committed  = false;
+        bool          candidate  = false;
+        bool          seeded     = false;
+        unsigned long changedAt  = 0;
+
+        // Seed both states to a known-safe value before the first read.
+        void seed(bool value) {
+            committed = candidate = value;
+            seeded    = true;
+        }
+
+        bool update(bool raw, unsigned long now, unsigned long stableMs) {
+            if (!seeded) { seed(raw); return committed; }
+            if (raw != candidate) {          // new level — restart stability timer
+                candidate = raw;
+                changedAt = now;
+            } else if (raw != committed && now - changedAt >= stableMs) {
+                committed = raw;             // held long enough — commit
+            }
+            return committed;
+        }
+    };
+
+    DebouncedInput waterLowInput;
+    DebouncedInput waterCriticalInput;
+    DebouncedInput reedInput;
+
     Adafruit_BME280 bme;
     BH1750          lightMeter;
 
