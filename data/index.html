@@ -13,7 +13,7 @@
       var dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
       var mode = pref === 'auto' ? (dark ? 'dusk' : 'day') : pref;
       document.documentElement.setAttribute('data-mode', mode);
-      document.body.setAttribute('data-loading', '1');
+      document.documentElement.setAttribute('data-loading', '1');
     })();
   </script>
   <link rel="stylesheet" href="style.css" />
@@ -54,10 +54,10 @@
       </div>
       <div class="meta">
         <span class="mode-badge" id="hdr-mode">AUTO</span>
-        <div class="led-row">
-          <span class="led" id="led-fault" title="fault"></span>
-          <span class="led on" id="led-water" title="water"></span>
-          <span class="led on" id="led-wifi" title="link"></span>
+        <div class="led-row" role="status" aria-live="polite">
+          <span class="led" id="led-fault" role="img" aria-label="Faults: none"></span>
+          <span class="led on" id="led-water" role="img" aria-label="Water: OK"></span>
+          <span class="led on" id="led-wifi" role="img" aria-label="Link: connecting"></span>
         </div>
       </div>
     </header>
@@ -90,52 +90,68 @@
         </div>
       </section>
 
-      <!-- ░░ BEDS ░░ -->
+      <!-- ░░ SETUP ░░ -->
       <section class="view" id="beds">
-        <div class="sec-label">Climate &amp; roof</div>
-        <div class="card">
-          <div class="field-label mb8">Target temperature</div>
-          <div class="stepper" id="temp-stepper"></div>
-          <div class="note mt12" id="temp-thresholds">—</div>
+        <div class="subnav" id="setup-subnav" role="tablist" aria-label="Setup sections">
+          <button class="subtab active" data-sub="climate" role="tab" aria-selected="true">Climate</button>
+          <button class="subtab" data-sub="plants" role="tab" aria-selected="false">Plants</button>
+          <button class="subtab" data-sub="light" role="tab" aria-selected="false">Light</button>
         </div>
 
-        <div class="sec-label">Planting plan</div>
-        <div id="beds-list"></div>
+        <div class="subview active" data-subview="climate" role="tabpanel">
+          <div class="sec-label">Climate &amp; roof</div>
+          <div class="card">
+            <div class="field-label mb8">Target temperature</div>
+            <div class="stepper" id="temp-stepper"></div>
+            <div class="note mt12" id="temp-thresholds">—</div>
+          </div>
+        </div>
 
-        <div class="sec-label">Plant library</div>
-        <div class="card" id="plant-lib">
-          <div id="plant-list"></div>
-          <div class="divide">
-            <div class="field-label mb8">Add a plant</div>
-            <div class="row" style="gap:8px">
-              <input class="txt" id="new-plant-name" style="flex:1.4" placeholder="Name e.g. Strawberry" maxlength="20" />
-              <button class="btn primary" id="add-plant-btn" style="flex-shrink:0"><svg class="ic" data-ic="plus"></svg> Add</button>
-            </div>
-            <div class="row between mt12" style="gap:12px">
-              <span class="field-label" id="new-plant-target-lbl" style="margin:0; white-space:nowrap">Target moisture 60%</span>
-              <input class="rng" id="new-plant-target" type="range" min="20" max="95" value="60" style="flex:1" />
+        <div class="subview" data-subview="plants" role="tabpanel">
+          <div class="sec-label">Planting plan</div>
+          <div id="beds-list"></div>
+
+          <div class="sec-label">Plant library</div>
+          <div class="card" id="plant-lib">
+            <div id="plant-list"></div>
+            <div class="divide">
+              <div class="field-label mb8">Add a plant</div>
+              <div class="row" style="gap:8px">
+                <input class="txt" id="new-plant-name" style="flex:1.4" placeholder="Name e.g. Strawberry" maxlength="20" />
+                <button class="btn primary" id="add-plant-btn" style="flex-shrink:0"><svg class="ic" data-ic="plus"></svg> Add</button>
+              </div>
+              <div class="row between mt12" style="gap:12px">
+                <span class="field-label" id="new-plant-target-lbl" style="margin:0; white-space:nowrap">Target moisture 60%</span>
+                <input class="rng" id="new-plant-target" type="range" min="20" max="95" value="60" style="flex:1" />
+              </div>
+              <div class="note mt8">Adding or removing a plant saves to the controller right away. Bed assignments and moisture targets save with the bar below.</div>
             </div>
           </div>
         </div>
 
-        <div class="sec-label">24-hour light profile</div>
-        <div class="card">
-          <div class="row between mb12">
-            <span class="card-h"><svg class="ic" data-ic="sun"></svg> Intensity by hour</span>
-            <span class="note">100% = peak</span>
-          </div>
-          <div id="lp-grid"></div>
-          <div class="row between divide" style="gap:12px">
-            <div>
-              <div class="field-label" style="margin:0">Maximum light</div>
-              <div class="note">Lux at 100% intensity</div>
+        <div class="subview" data-subview="light" role="tabpanel">
+          <div class="sec-label">24-hour light profile</div>
+          <div class="card">
+            <div class="row between mb12">
+              <span class="card-h"><svg class="ic" data-ic="sun"></svg> Intensity by hour</span>
+              <span class="note">100% = peak</span>
             </div>
-            <div style="width:150px; flex-shrink:0" class="stepper" id="lux-stepper"></div>
+            <div id="lp-grid"></div>
+            <div class="row between divide" style="gap:12px">
+              <div>
+                <div class="field-label" style="margin:0">Maximum light</div>
+                <div class="note">Lux at 100% intensity</div>
+              </div>
+              <div style="width:150px; flex-shrink:0" class="stepper" id="lux-stepper"></div>
+            </div>
+            <div class="note mt10">Drag a bar to reshape the day, then save. The controller blends LED output to hit this curve, subtracting daylight the sensor already sees.</div>
           </div>
-          <div class="note mt10">Drag a bar to reshape the day, then save. The controller blends LED output to hit this curve, subtracting daylight the sensor already sees.</div>
         </div>
 
-        <button class="btn primary full mt4" id="save-config-btn">Save configuration to controller</button>
+        <div class="save-bar" id="save-bar">
+          <span class="save-status" id="save-status">All changes saved</span>
+          <button class="btn primary" id="save-config-btn">Save to controller</button>
+        </div>
         <div class="spacer"></div>
       </section>
 
@@ -196,7 +212,7 @@
         <div class="card">
           <div class="kv"><span class="k">Measured</span><span class="v" id="lc-measured">— lx</span></div>
           <div class="kv"><span class="k">LED PWM duty</span><span class="v" id="lc-pwm">— / 255</span></div>
-          <div class="moist-track" style="height:9px; margin-top:10px"><div class="moist-fill" id="lc-bar" style="width:0%; background:linear-gradient(90deg, var(--sun), var(--terra))"></div></div>
+          <div class="moist-track" style="height:9px; margin-top:10px"><div class="moist-fill" id="lc-bar" style="width:0%; background:var(--sun)"></div></div>
         </div>
         <div class="spacer"></div>
       </section>
@@ -228,6 +244,7 @@
             </div>
             <div class="note mb10">Open a valve, then run the pump. Valves close on emergency stop.</div>
             <div class="grid-2" id="valve-grid" style="grid-template-columns:repeat(5,1fr); gap:7px"></div>
+            <button class="btn sm full mt10" id="valve-closeall-btn">Close all valves</button>
           </div>
 
           <div class="card mtg">
@@ -262,7 +279,7 @@
             <span class="card-h"><svg class="ic" data-ic="cpu"></svg> Free heap</span>
             <span class="v" id="sys-heap" style="font-size:13px; font-weight:700">— KB</span>
           </div>
-          <div class="moist-track" style="height:9px"><div class="moist-fill" id="heap-bar" style="width:0%; background:linear-gradient(90deg, var(--leaf), var(--sky))"></div></div>
+          <div class="moist-track" style="height:9px"><div class="moist-fill" id="heap-bar" style="width:0%; background:var(--leaf)"></div></div>
           <div class="row between" style="margin-top:6px"><span class="note">0</span><span class="note">320 KB total</span></div>
         </div>
 
@@ -320,7 +337,7 @@
     <!-- bottom nav -->
     <nav class="tabbar" id="tabbar">
       <button class="tab active" data-tab="dash"><svg class="ic" data-ic="dash"></svg><span class="t-label">Garden</span></button>
-      <button class="tab" data-tab="beds"><svg class="ic" data-ic="beds"></svg><span class="t-label">Beds</span></button>
+      <button class="tab" data-tab="beds"><svg class="ic" data-ic="beds"></svg><span class="t-label">Setup</span></button>
       <button class="tab" data-tab="diag"><svg class="ic" data-ic="diag"></svg><span class="t-label">Sensors</span></button>
       <button class="tab" data-tab="manual"><svg class="ic" data-ic="manual"></svg><span class="t-label">Control</span></button>
       <button class="tab" data-tab="system"><svg class="ic" data-ic="system"></svg><span class="t-label">System</span></button>

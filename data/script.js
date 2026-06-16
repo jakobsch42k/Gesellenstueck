@@ -356,7 +356,9 @@ function setChip(el, cls, txt) { el.className = 'chip ' + cls; el.innerHTML = '<
    FETCH LOOP
    ============================================================ */
 function setOnline(ok) {
-  $('#led-wifi').className = 'led ' + (ok ? 'on' : 'err');
+  const w = $('#led-wifi');
+  w.className = 'led ' + (ok ? 'on' : 'err');
+  w.setAttribute('aria-label', 'Link: ' + (ok ? 'connected' : 'offline'));
   if (!ok && firstPollDone) {
     $('#hdr-mode').textContent = 'OFFLINE';
     $('#hdr-mode').className = 'mode-badge offline';
@@ -381,12 +383,14 @@ async function pollOnce() {
     maintenance = !!d.MAINTENANCE_MODE;
     if (!firstPollDone) {
       firstPollDone = true;
-      document.body.removeAttribute('data-loading');
+      document.documentElement.removeAttribute('data-loading');
     }
     pushHist(d);
     $('#hdr-mode').textContent = maintenance ? 'MAINT' : 'AUTO';
     $('#hdr-mode').className = 'mode-badge' + (maintenance ? ' maint' : '');
-    $('#led-water').className = 'led ' + (!d.waterCritical ? 'err' : !d.waterLow ? 'warn' : 'on');
+    const lw = $('#led-water');
+    lw.className = 'led ' + (!d.waterCritical ? 'err' : !d.waterLow ? 'warn' : 'on');
+    lw.setAttribute('aria-label', 'Water: ' + (!d.waterCritical ? 'critical' : !d.waterLow ? 'low' : 'OK'));
     updateMaintUI();
     setOnline(true);
     lastPollOk = true;
@@ -396,7 +400,10 @@ async function pollOnce() {
   try { renderSystem(await fetchT('/systemStatus').then((r) => r.json())); } catch (e) { renderSystem(null); }
 
   const ef = (lastDiag.errorFlags || '').trim();
-  $('#led-fault').className = 'led' + ((ef && !/^none$/i.test(ef)) ? ' err' : '');
+  const hasFault = ef && !/^none$/i.test(ef);
+  const lf = $('#led-fault');
+  lf.className = 'led' + (hasFault ? ' err' : '');
+  lf.setAttribute('aria-label', hasFault ? 'Faults: ' + humanizeFlags(ef) : 'Faults: none');
 
   renderDash(); renderDiag(); renderLiveBeds();
   // keep the journal live while the Logs tab is open
@@ -471,8 +478,8 @@ async function loadConfig() {
 }
 
 function buildSteppers() {
-  stepper($('#temp-stepper'), config.tempTarget, 12, 36, 0.5, '°C', 'var(--terra)', (v) => { config.tempTarget = v; $('#temp-thresholds').innerHTML = thresholdTxt(); });
-  stepper($('#lux-stepper'), config.luxTarget, 50, 2000, 10, 'lx', 'var(--sun)', (v) => { config.luxTarget = v; });
+  stepper($('#temp-stepper'), config.tempTarget, 12, 36, 0.5, '°C', 'var(--terra)', (v) => { config.tempTarget = v; $('#temp-thresholds').innerHTML = thresholdTxt(); markDirty(); });
+  stepper($('#lux-stepper'), config.luxTarget, 50, 2000, 10, 'lx', 'var(--sun)', (v) => { config.luxTarget = v; markDirty(); });
   $('#temp-thresholds').innerHTML = thresholdTxt();
 }
 function thresholdTxt() {
@@ -527,11 +534,13 @@ function buildBeds() {
       $('#tlbl-' + i).textContent = config.moisture[i];
       $('#pb-tgt-' + i).style.left = config.moisture[i] + '%';
     }
+    markDirty();
     buildBeds(); renderLiveBeds();
   }));
   $$('#beds-list [data-bedtarget]').forEach((rng) => rng.addEventListener('input', () => {
     const i = +rng.dataset.bedtarget; config.moisture[i] = +rng.value;
     $('#tlbl-' + i).textContent = rng.value; $('#pb-tgt-' + i).style.left = rng.value + '%';
+    markDirty();
     renderLiveBeds();
   }));
   renderLiveBeds();
@@ -552,7 +561,7 @@ function buildLightProfile() {
     const set = (clientY) => {
       const r = track.getBoundingClientRect();
       const v = clamp(Math.round((1 - (clientY - r.top) / r.height) * 100), 0, 100);
-      config.lightProfile[hour] = v; bar.style.height = v + '%';
+      config.lightProfile[hour] = v; bar.style.height = v + '%'; markDirty();
     };
     track.addEventListener('pointerdown', (e) => {
       e.preventDefault(); track.setPointerCapture(e.pointerId); set(e.clientY);
@@ -562,6 +571,23 @@ function buildLightProfile() {
       track.addEventListener('pointerup', up);
     });
   });
+}
+
+/* unsaved-changes tracking for the deferred config (temp, lux, bed targets, light profile).
+   Plant add/delete is immediate API and intentionally excluded. */
+let configDirty = false;
+function markDirty() {
+  if (configDirty) return;
+  configDirty = true;
+  const bar = $('#save-bar'), st = $('#save-status');
+  if (bar) bar.classList.add('dirty');
+  if (st) st.textContent = 'Unsaved changes';
+}
+function clearDirty() {
+  configDirty = false;
+  const bar = $('#save-bar'), st = $('#save-status');
+  if (bar) bar.classList.remove('dirty');
+  if (st) st.textContent = 'All changes saved';
 }
 
 let savingConfig = false;
@@ -579,6 +605,7 @@ async function saveConfig() {
   try {
     const r = await fetchT('/saveConfig', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     if (!r.ok) throw new Error(r.status);
+    clearDirty();
     toast('Configuration saved');
   } catch (e) { toast('Save failed — check connection', true); }
   finally { savingConfig = false; btn.disabled = false; }
@@ -604,7 +631,16 @@ function renderPlantLib() {
         <svg class="ic" data-ic="trash"></svg></button></div>`;
   }).join('') : '<div class="note">No plants yet — add one below.</div>';
   initIcons($('#plant-list'));
-  $$('#plant-list [data-del]').forEach((b) => b.addEventListener('click', () => deletePlant(b.dataset.del)));
+  // inline two-tap confirm (on-brand, no native dialog): first tap arms, second deletes; auto-reverts after 3 s
+  $$('#plant-list [data-del]').forEach((b) => {
+    let timer;
+    const reset = () => { b.classList.remove('arm'); b.style.width = '40px'; b.innerHTML = '<svg class="ic" data-ic="trash"></svg>'; initIcons(b); };
+    b.addEventListener('click', () => {
+      if (b.classList.contains('arm')) { clearTimeout(timer); deletePlant(b.dataset.del); return; }
+      b.classList.add('arm'); b.style.width = 'auto'; b.textContent = 'Delete?';
+      timer = setTimeout(reset, 3000);
+    });
+  });
 }
 let addingPlant = false;
 async function addPlant() {
@@ -630,7 +666,6 @@ async function addPlant() {
   finally { addingPlant = false; btn.disabled = false; }
 }
 async function deletePlant(name) {
-  if (!confirm(`Delete plant “${name}”?`)) return;
   try {
     const r = await fetch('/deletePlant', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
     if (!r.ok && r.status !== 404) throw new Error(r.status);
@@ -713,6 +748,17 @@ function init() {
     applyTheme();
   });
 
+  // setup sub-navigation (Climate / Plants / Light)
+  $$('#setup-subnav .subtab').forEach((t) => t.addEventListener('click', () => {
+    $$('#setup-subnav .subtab').forEach((x) => {
+      const on = x === t;
+      x.classList.toggle('active', on);
+      x.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    $$('#beds .subview').forEach((v) => v.classList.toggle('active', v.dataset.subview === t.dataset.sub));
+    $('.scroll').scrollTop = 0;
+  }));
+
   // beds / config
   $('#save-config-btn').addEventListener('click', saveConfig);
   $('#new-plant-target').addEventListener('input', (e) => { $('#new-plant-target-lbl').textContent = 'Target moisture ' + e.target.value + '%'; });
@@ -738,6 +784,20 @@ function init() {
     if (ok) pumpOn = next; // confirmed state only
     btn.textContent = 'Pump ' + (pumpOn ? 'ON' : 'OFF');
     btn.className = 'btn sm' + (pumpOn ? ' sky' : '');
+    btn.disabled = false;
+  });
+  $('#valve-closeall-btn').addEventListener('click', async () => {
+    const btn = $('#valve-closeall-btn');
+    btn.disabled = true;
+    const ok = await manual('valve_closeAll');
+    if (ok) {
+      valveState.fill(false);
+      $$('#valve-grid [data-valve]').forEach((b) => {
+        b.classList.remove('on');
+        b.querySelector('svg').style.color = 'var(--sky)';
+      });
+      toast('All valves closed');
+    }
     btn.disabled = false;
   });
   $('#led-slider').addEventListener('input', (e) => { $('#led-pct').innerHTML = Math.round(e.target.value / 255 * 100) + '<span class="u">%</span>'; });
