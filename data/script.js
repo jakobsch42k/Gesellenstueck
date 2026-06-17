@@ -270,6 +270,7 @@ function irrLayout() {
 
 function buildIrrSvg() {
   const L = irrLayout();
+  IRR.L = L;
   const ns = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(ns, 'svg');
   svg.setAttribute('viewBox', `0 0 ${IRR.W} ${IRR.H}`);
@@ -355,7 +356,7 @@ function buildIrrSvg() {
 }
 
 function setBedFill(i, perc) {
-  const L = irrLayout();
+  const L = IRR.L;
   const h = Math.max(0, Math.min(100, perc)) / 100 * L.bedH;
   const fill = document.getElementById(`irr-fill-${i}`);
   fill.setAttribute('height', h);
@@ -369,7 +370,7 @@ function setBedFill(i, perc) {
 function renderIrrigationMap() {
   if (!IRR.built) buildIrrSvg();
   const soil = lastData.soilPerc || [];
-  for (let i = 0; i < IRR.beds; i++) setBedFill(i, soil[i] || 0);
+  for (let i = 0; i < IRR.beds; i++) setBedFill(i, soil[i] ?? 0);
   // animation/state handled in Task 5
 }
 function avgSeries() {
