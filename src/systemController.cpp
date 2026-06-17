@@ -131,6 +131,8 @@ void SystemController::run() {
     controlStatus.roofState  = roofControl.getState();
     controlStatus.irrigState = irrigation.getState();
     controlStatus.lightPWM   = lightControl.getCurrentPWM();
+    controlStatus.activeBed     = irrigation.getActiveBed();
+    controlStatus.irrigRemainMs = irrigation.getStateRemainingMs(config);
 
     display_update(liveData, errorFlags);
     webBackend_handle();

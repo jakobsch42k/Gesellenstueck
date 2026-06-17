@@ -472,6 +472,8 @@ static void handleDiagnostics() {
 
     const char* irrStr[] = {"IDLE", "PUMPING", "PAUSING"};
     doc["pumpStatus"] = irrStr[(int)ctrlStatus->irrigState];
+    doc["activeBed"]     = ctrlStatus->activeBed;
+    doc["irrigRemainMs"] = ctrlStatus->irrigRemainMs;
 
     // Active error flags as a comma-separated string
     String flags = "";

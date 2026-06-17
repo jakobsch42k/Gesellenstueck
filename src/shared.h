@@ -87,9 +87,11 @@ enum IrrigationState {
 // Read-only snapshot of control module state for the web backend. Filled by
 // SystemController each loop; webBackend reads it via const pointer.
 struct ControlStatus {
-    RoofState       roofState  = ROOF_IDLE;
-    IrrigationState irrigState = IRRIGATION_IDLE;
-    int             lightPWM   = 0;
+    RoofState       roofState     = ROOF_IDLE;
+    IrrigationState irrigState    = IRRIGATION_IDLE;
+    int             lightPWM      = 0;
+    int             activeBed     = -1;  // irrigation: bed being watered, -1 = none
+    unsigned long   irrigRemainMs = 0;   // ms left in current irrigation timed state
 };
 
 // ── ErrorFlags ────────────────────────────────────────────────────────────────
