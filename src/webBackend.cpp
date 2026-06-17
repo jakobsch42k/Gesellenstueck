@@ -205,10 +205,12 @@ static void handleData() {
     doc["roofClosed"]    = liveData->roofClosed;
     doc["timeOfDay"]     = liveData->timeOfDay;
 
-    const char* irrStr[] = {"IDLE", "PUMPING", "PAUSING"};
+    const char* irrStr[] = {"IDLE", "PUMPING"};
     doc["pumpStatus"]    = irrStr[(int)ctrlStatus->irrigState];
     doc["activeBed"]     = ctrlStatus->activeBed;
     doc["irrigRemainMs"] = ctrlStatus->irrigRemainMs;
+    JsonArray diffuse = doc["bedDiffuseMs"].to<JsonArray>();
+    for (int i = 0; i < NUM_BEDS; i++) diffuse.add(ctrlStatus->bedDiffuseMs[i]);
 
     addErrorFlags(doc);
 
@@ -472,7 +474,7 @@ static void handleDiagnostics() {
     // System states
     doc["roofContact"] = liveData->roofClosed ? "Closed" : "Open";
 
-    const char* irrStr[] = {"IDLE", "PUMPING", "PAUSING"};
+    const char* irrStr[] = {"IDLE", "PUMPING"};
     doc["pumpStatus"] = irrStr[(int)ctrlStatus->irrigState];
 
     // Active error flags as a comma-separated string

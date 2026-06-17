@@ -468,6 +468,23 @@ function buildIrrSvg() {
   const host = $('#irrig-map');
   host.innerHTML = '';
   host.appendChild(svg);
+
+  // click-to-select: bind after svg is in the DOM so getElementById resolves
+  for (let i = 0; i < IRR.beds; i++) {
+    document.getElementById(`irr-bed-${i}`).addEventListener('click', (e) => {
+      e.stopPropagation();
+      const idx = +e.currentTarget.id.replace('irr-bed-', '');
+      const prev = selectedBed;
+      selectedBed = (selectedBed === idx) ? -1 : idx;
+      if (prev >= 0 && prev < IRR.beds) document.getElementById(`irr-bed-${prev}`).classList.remove('selected');
+      if (selectedBed >= 0) document.getElementById(`irr-bed-${selectedBed}`).classList.add('selected');
+    });
+  }
+  svg.addEventListener('click', () => {
+    if (selectedBed >= 0) document.getElementById(`irr-bed-${selectedBed}`).classList.remove('selected');
+    selectedBed = -1;
+  });
+
   IRR.built = true;
 }
 
@@ -484,6 +501,7 @@ function setBedFill(i, perc) {
 }
 
 const IRRA = { state: '', bed: -1, flow: null, drop: null };
+let selectedBed = -1;
 
 function irrKillFlow() {
   if (IRRA.flow) { IRRA.flow.kill(); IRRA.flow = null; }
@@ -544,26 +562,39 @@ function renderIrrigationMap() {
   const tank = document.getElementById('irr-tank');
   const tankT = document.getElementById('irr-tank-t');
 
-  // derive a single display state
+  // derive a single display state (PAUSING removed — use per-bed bedDiffuseMs instead)
   const ds = locked ? 'LOCKED'
-           : (ps === 'PUMPING' && validBed) ? 'PUMPING'
-           : (ps === 'PAUSING' && validBed) ? 'PAUSING' : 'IDLE';
+           : (ps === 'PUMPING' && validBed) ? 'PUMPING' : 'IDLE';
 
   if (ds !== IRRA.state || bed !== IRRA.bed) {
     irrKillFlow();
     tank.classList.toggle('locked', ds === 'LOCKED');
     if (ds === 'PUMPING') irrStartFlow(bed);
-    else if (ds === 'PAUSING') document.getElementById(`irr-bed-${bed}`).classList.add('absorbing');
     else if (ds === 'IDLE') { const nb = nextDriestBed(); if (nb >= 0) document.getElementById(`irr-bed-${nb}`).classList.add('next'); }
     IRRA.state = ds; IRRA.bed = bed;
   }
 
+  // passive soak glow: driven per-bed by bedDiffuseMs, independent of global state
+  const diffuse = Array.isArray(lastData.bedDiffuseMs) ? lastData.bedDiffuseMs : [];
+  for (let i = 0; i < IRR.beds; i++) {
+    const b = document.getElementById(`irr-bed-${i}`);
+    if (b) b.classList.toggle('absorbing', (diffuse[i] || 0) > 0);
+  }
+
   tankT.textContent = ds === 'LOCKED' ? 'STOP' : 'TANK';
-  status.textContent =
-    ds === 'LOCKED'  ? 'Water critical — locked' :
-    ds === 'PUMPING' ? `Watering B${bed + 1} · ${fmtMMSS(lastData.irrigRemainMs)}` :
-    ds === 'PAUSING' ? `Diffusion B${bed + 1} · ${fmtMMSS(lastData.irrigRemainMs)}` :
-                       'Scanning beds';
+
+  // status line: reflects selected bed only
+  if (ds === 'LOCKED') {
+    status.textContent = 'Water critical — locked';
+  } else if (selectedBed < 0) {
+    status.textContent = 'Tap a bed';
+  } else if (lastData.activeBed === selectedBed) {
+    status.textContent = `Watering B${selectedBed + 1} · ${fmtMMSS(lastData.irrigRemainMs)}`;
+  } else if ((diffuse[selectedBed] || 0) > 0) {
+    status.textContent = `Diffusion B${selectedBed + 1} · ${fmtMMSS(diffuse[selectedBed])}`;
+  } else {
+    status.textContent = `B${selectedBed + 1} · idle`;
+  }
 }
 function avgSeries() {
   // Average only channels that have data, aligned from the tail — one dead

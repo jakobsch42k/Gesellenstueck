@@ -79,8 +79,7 @@ enum RoofState {
 
 enum IrrigationState {
     IRRIGATION_IDLE,
-    IRRIGATION_PUMPING,
-    IRRIGATION_PAUSING
+    IRRIGATION_PUMPING
 };
 
 // ── ControlStatus ─────────────────────────────────────────────────────────────
@@ -92,6 +91,9 @@ struct ControlStatus {
     int             lightPWM      = 0;
     int             activeBed     = -1;  // irrigation: bed being watered, -1 = none
     unsigned long   irrigRemainMs = 0;   // ms left in current irrigation timed state
+    // Per-bed diffusion (re-water lockout) countdown, ms left, 0 = ready. Beds
+    // soak independently after pumping so the next dry bed waters immediately.
+    unsigned long   bedDiffuseMs[NUM_BEDS] = {0};
 };
 
 // ── ErrorFlags ────────────────────────────────────────────────────────────────

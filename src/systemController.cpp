@@ -133,6 +133,8 @@ void SystemController::run() {
     controlStatus.lightPWM   = lightControl.getCurrentPWM();
     controlStatus.activeBed     = irrigation.getActiveBed();
     controlStatus.irrigRemainMs = irrigation.getStateRemainingMs(config);
+    for (int i = 0; i < NUM_BEDS; i++)
+        controlStatus.bedDiffuseMs[i] = irrigation.getBedDiffuseMs(i, config);
 
     display_update(liveData, errorFlags);
     webBackend_handle();

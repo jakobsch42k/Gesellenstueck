@@ -307,10 +307,11 @@ select.sel { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w
 .irr-tank { fill: var(--card, #fff); stroke: var(--sky); stroke-width: 2; }
 .irr-tank.locked { stroke: var(--terra); fill: color-mix(in oklab, var(--terra) 14%, transparent); }
 .irr-tank-t { fill: var(--ink); font: 700 11px/1 system-ui, sans-serif; text-anchor: middle; letter-spacing: .5px; }
-.irr-bed { fill: var(--card, #fff); stroke: var(--line, #d8dcd6); stroke-width: 1.5; }
+.irr-bed { fill: var(--card, #fff); stroke: var(--line, #d8dcd6); stroke-width: 1.5; cursor: pointer; }
 .irr-bed.active { stroke: var(--sky); stroke-width: 2.5; filter: drop-shadow(0 0 5px color-mix(in oklab, var(--sky) 55%, transparent)); }
 .irr-bed.absorbing { stroke: var(--leaf); animation: irr-pulse 1.4s ease-in-out infinite; }
 .irr-bed.next { stroke: var(--leaf); stroke-dasharray: 4 4; }
+.irr-bed.selected { stroke: var(--sky); stroke-width: 3; filter: drop-shadow(0 0 6px color-mix(in oklab, var(--sky) 70%, transparent)); }
 @keyframes irr-pulse { 0%,100% { stroke-opacity: 1; } 50% { stroke-opacity: .35; } }
 .irr-fill { fill: color-mix(in oklab, var(--leaf) 55%, transparent); transition: height .5s ease, y .5s ease; }
 .irr-target { stroke: var(--terra); stroke-width: 1.5; stroke-dasharray: 3 3; }

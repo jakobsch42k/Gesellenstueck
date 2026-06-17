@@ -33,6 +33,13 @@ void IrrigationController::update(const LiveData& data, Config& cfg, ErrorFlags&
         err.lastErrorMessage = "Water level low — refill soon";
     }
 
+    // Expire per-bed diffusion lockouts. Each bed soaks on its own clock; once
+    // irrigationPause_ms elapses the bed is eligible for re-watering again.
+    for (int i = 0; i < NUM_BEDS; i++) {
+        if (diffusing[i] && (millis() - lockedAt[i]) >= cfg.irrigationPause_ms)
+            diffusing[i] = false;
+    }
+
     unsigned long elapsed = millis() - stateEnteredAt;
 
     switch (state) {
@@ -41,11 +48,14 @@ void IrrigationController::update(const LiveData& data, Config& cfg, ErrorFlags&
             // Round-robin scan: start from cfg.nextBed and wrap, watering the
             // first dry bed found. Rotating the start point keeps beds fair under
             // contention so no bed starves behind a perpetually thirsty bed 1.
+            // Beds still in their diffusion lockout are skipped so we never
+            // re-pump a freshly watered bed before its soil reading settles.
             // Bounded to NUM_BEDS iterations — safe even if all beds are
-            // faulty/moist (loop simply finds nothing and stays IDLE).
+            // faulty/moist/soaking (loop simply finds nothing and stays IDLE).
             for (int k = 0; k < NUM_BEDS; k++) {
                 int i = (cfg.nextBed + k) % NUM_BEDS;
                 if (err.ERR_SOIL[i]) continue; // skip faulty sensors
+                if (diffusing[i])    continue; // skip beds still soaking
                 if (data.soilPerc[i] < cfg.moisture[i]) {
                     activeBed = i;
                     act->valve_open(activeBed);
@@ -63,23 +73,18 @@ void IrrigationController::update(const LiveData& data, Config& cfg, ErrorFlags&
             if (elapsed >= cfg.irrigationDuration_ms) {
                 act->valve_close(activeBed);
                 act->pump_off();
-                enterState(IRRIGATION_PAUSING);
-                logger.info("irrigation", "bed " + String(activeBed + 1) +
-                            " — pump done, diffusion pause");
-            }
-            break;
-
-        case IRRIGATION_PAUSING:
-            if (elapsed >= cfg.irrigationPause_ms) {
-                // Cycle fully done with an actual watering — advance the rotation
-                // pointer past the bed just served so the next bed gets first
-                // dibs. Wraps after the last bed (bed 5 → bed 1). Only reached on
-                // real watering; the critical-water lock path bypasses this.
+                // Start this bed's solo diffusion lockout, then return straight
+                // to IDLE so the scanner can water the next dry bed immediately —
+                // no global pause blocking the rest of the beds.
+                diffusing[activeBed] = true;
+                lockedAt[activeBed]  = millis();
+                // Advance the rotation pointer past the bed just served so the
+                // next bed gets first dibs (bed 5 → bed 1 wrap).
                 cfg.nextBed = (activeBed + 1) % NUM_BEDS;
+                logger.info("irrigation", "bed " + String(activeBed + 1) +
+                            " — pump done, diffusing");
                 activeBed = -1;
                 enterState(IRRIGATION_IDLE);
-                // IDLE will re-check moisture on next call
-                logger.info("irrigation", "pause done — re-checking moisture");
             }
             break;
     }

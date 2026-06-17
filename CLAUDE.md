@@ -84,7 +84,7 @@ Each module takes `LiveData*`, `Config*`, `ErrorFlags*` in its `init()` and chec
 
 `src/webBackend.cpp` — synchronous `WebServer` (ESP32 core) on port 80. Key routes:
 
-- `GET /data.json` → JSON live sensor + control state (tempC, humPerc, lux, luxSmoothed, soilPerc[5], waterLow, waterCritical [bool, true = sufficient], roofClosed, timeOfDay, pumpStatus, activeBed [int, -1 = none], irrigRemainMs [ms left in current irrigation timed state, 0 in IDLE], MAINTENANCE_MODE, ERR_ROOF_TIMEOUT, ERR_WATER_CRITICAL, ERR_FS_MOUNT, EMERGENCY_STOP, ERR_SENSOR_BME, ERR_SENSOR_BH, lastErrorMessage)
+- `GET /data.json` → JSON live sensor + control state (tempC, humPerc, lux, luxSmoothed, soilPerc[5], waterLow, waterCritical [bool, true = sufficient], roofClosed, timeOfDay, pumpStatus, activeBed [int, -1 = none], irrigRemainMs [ms left in active pump cycle, 0 unless PUMPING], bedDiffuseMs [int[5], per-bed diffusion lockout ms left, 0 = ready], MAINTENANCE_MODE, ERR_ROOF_TIMEOUT, ERR_WATER_CRITICAL, ERR_FS_MOUNT, EMERGENCY_STOP, ERR_SENSOR_BME, ERR_SENSOR_BH, lastErrorMessage)
 - `GET /logs.json` → event journal as JSON array, oldest→newest: `[{t, up, lvl, tag, msg}]` (t = secs since midnight, up = millis() at log time, lvl = DEBUG/INFO/WARN/ERROR). Served from the RAM ring, not flash.
 - `GET /systemStatus` → uptime, free heap, CPU freq, WiFi client count
 - `GET /config` / `POST /saveConfig` / `POST /importConfig` → config read/write (saveConfig accepts partial JSON; importConfig replaces entire config)
