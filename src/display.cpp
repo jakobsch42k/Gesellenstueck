@@ -39,7 +39,7 @@ void display_update(const LiveData& data, const ErrorFlags& err) {
                  : !data.waterLow                                   ? "Wasser LOW"
                                                                     : "Wasser OK";
     String mode  = err.EMERGENCY_STOP  ? "STOP"
-                 : err.MAINTENANCE_MODE ? "Main"
+                 : err.MAINTENANCE_MODE ? "Maint"
                                         : "Auto";
     // Right-align mode in the remaining columns
     String line2 = padTo(water, 16 - (int)mode.length()) + mode;
