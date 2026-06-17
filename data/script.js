@@ -260,7 +260,7 @@ function renderDash() {
       }).join('');
   }
 }
-const IRR = { built: false, beds: 5, W: 320, H: 210 };
+const IRR = { built: false, beds: 5, W: 320, H: 230 };
 
 function irrLayout() {
   // x-centres for 5 beds across the width; pump centred at top.
