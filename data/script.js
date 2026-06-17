@@ -799,7 +799,7 @@ async function fetchLogs() {
       host.innerHTML = '<div class="note">No events logged yet.</div>';
       return;
     }
-    host.innerHTML = arr.slice().reverse().map((e) => {
+    host.innerHTML = arr.slice(-20).reverse().map((e) => {
       const lvl = String(e.lvl || 'INFO').toUpperCase();
       const cls = LOG_CLS[lvl] || 'on';
       return `<div class="log-row ${cls}"><div class="log-meta">` +
