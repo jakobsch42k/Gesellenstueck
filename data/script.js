@@ -331,11 +331,6 @@ function renderDash() {
   tiles.forEach(([dom, , , val, dec, unit]) => updateMetric(dom, val, dec, unit, loading, skelSpan));
   tiles.forEach(([dom, , , , , , series, color]) => spark($('#sp-' + dom), series, color, 30, { drawOn }));
 
-  // temp + light charts
-  $('#temp-target-note').textContent = `target ${config.tempTarget}±${config.tempHyst}°C`;
-  areaChart($('#chart-temp'), hist.temp, 'var(--terra)', 116, { lo: config.tempTarget - config.tempHyst, hi: config.tempTarget + config.tempHyst }, { drawOn });
-  $('#light-note').textContent = loading ? '' : `${fmt(d.lux, 0)} lx now`;
-  areaChart($('#chart-light'), hist.lux, 'var(--sun)', 92, null, { drawOn });
 
   // dashboard beds
   $('#soil-avg-note').textContent = loading ? '' : 'avg ' + soilAvg + '%';
