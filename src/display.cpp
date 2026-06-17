@@ -34,15 +34,15 @@ void display_update(const LiveData& data, const ErrorFlags& err) {
     lcd.setCursor(0, 0);
     lcd.print(padTo(line1, 16));
 
-    // Line 2: water / error status (critical takes priority)
-    String line2;
-    if (!data.waterCritical || err.ERR_WATER_CRITICAL) {
-        line2 = "KRITISCH!";
-    } else if (!data.waterLow) {
-        line2 = "Wasser WARN!";
-    } else {
-        line2 = "Wasser OK";
-    }
+    // Line 2: "Wasser XX   MODE" — water left, system mode right, 16 chars total
+    String water = (!data.waterCritical || err.ERR_WATER_CRITICAL) ? "Wasser KRIT"
+                 : !data.waterLow                                   ? "Wasser LOW"
+                                                                    : "Wasser OK";
+    String mode  = err.EMERGENCY_STOP  ? "STOP"
+                 : err.MAINTENANCE_MODE ? "Main"
+                                        : "Auto";
+    // Right-align mode in the remaining columns
+    String line2 = padTo(water, 16 - (int)mode.length()) + mode;
     lcd.setCursor(0, 1);
     lcd.print(padTo(line2, 16));
 }
