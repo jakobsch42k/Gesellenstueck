@@ -30,6 +30,56 @@ function toast(msg, bad) {
   toastT = setTimeout(() => el.classList.remove('show'), 2200);
 }
 
+/* ---- motion : GSAP-driven, reduced-motion + offline aware ---
+   Single source of truth for "should we animate". `on` is false when
+   GSAP failed to load (offline edge) or the user prefers reduced motion;
+   every animated feature falls back to an instant set in that case. */
+const MOTION = {
+  reduce: !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches),
+  get on() { return !!window.gsap && !this.reduce; },
+};
+(function () {
+  const mm = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)');
+  if (mm && mm.addEventListener) mm.addEventListener('change', (e) => {
+    MOTION.reduce = e.matches;
+    document.documentElement.classList.toggle('js-motion', MOTION.on);
+  });
+  if (window.gsap) gsap.defaults({ ease: 'power4.out', duration: 0.6 });
+  document.documentElement.classList.toggle('js-motion', MOTION.on);
+})();
+
+/* Reveal an SVG line path by drawing it in. No-op when motion is off. */
+function drawReveal(path, doIt) {
+  if (!doIt || !MOTION.on || !path || typeof path.getTotalLength !== 'function') return;
+  let len;
+  try { len = path.getTotalLength(); } catch (e) { return; }
+  if (!len) return;
+  gsap.killTweensOf(path);
+  gsap.set(path, { strokeDasharray: len, strokeDashoffset: len });
+  gsap.to(path, {
+    strokeDashoffset: 0, duration: 0.7, ease: 'power2.out',
+    onComplete() { path.style.removeProperty('stroke-dasharray'); path.style.removeProperty('stroke-dashoffset'); },
+  });
+}
+
+/* Stagger the direct children of a view into place on activation. */
+function revealView(viewEl) {
+  if (!MOTION.on || !viewEl) return;
+  const items = [...viewEl.children].filter((el) => !el.hidden);
+  if (!items.length) return;
+  gsap.killTweensOf(items);
+  gsap.from(items, { y: 8, opacity: 0, duration: 0.45, stagger: 0.05, overwrite: true, clearProps: 'transform,opacity' });
+}
+
+/* One-time calm emphasis on an indicator when a fault first appears. */
+function faultCue(el) {
+  if (!el || !MOTION.on) return;
+  gsap.fromTo(el, { scale: 1 }, {
+    scale: 1.35, duration: 0.18, yoyo: true, repeat: 3, ease: 'power2.inOut',
+    transformOrigin: '50% 50%', overwrite: true, clearProps: 'transform',
+  });
+}
+
 /* ---- icons : expand <svg class="ic" data-ic="x"> ----------- */
 function initIcons(root = document) {
   $$('.ic[data-ic]', root).forEach((svg) => {
@@ -71,16 +121,19 @@ darkMQ.addEventListener('change', () => {
 
 /* ---- tabs -------------------------------------------------- */
 $$('.tab').forEach((t) => t.addEventListener('click', () => {
+  const target = t.dataset.tab;
   $$('.tab').forEach((x) => x.classList.toggle('active', x === t));
-  $$('.view').forEach((v) => v.classList.toggle('active', v.id === t.dataset.tab));
+  $$('.view').forEach((v) => v.classList.toggle('active', v.id === target));
   $('.scroll').scrollTop = 0;
-  if (t.dataset.tab === 'logs') fetchLogs(); // pull the journal on first open
+  if (target === 'logs') fetchLogs(); // pull the journal on first open
+  if (target === 'dash') { drawCharts = true; renderDash(); } // redraw charts/sparks on re-entry
+  revealView($('#' + target));
 }));
 
 /* ---- sparkline (SVG path) ---------------------------------- */
-function spark(el, data, color, h) {
+function spark(el, data, color, h, opts) {
   h = h || 30;
-  if (!data || data.length < 2) { el.innerHTML = ''; return; }
+  if (!data || data.length < 2) { el.innerHTML = ''; el._spark = null; return; }
   const W = 100, H = h;
   let lo = Math.min(...data), hi = Math.max(...data);
   if (lo === hi) { lo -= 1; hi += 1; }
@@ -89,20 +142,34 @@ function spark(el, data, color, h) {
   const line = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
   const area = line + ` L${W} ${H} L0 ${H} Z`;
   const last = pts[pts.length - 1];
-  const gid = 'g' + Math.random().toString(36).slice(2, 7);
-  el.innerHTML =
-    `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%;height:${H}px;overflow:visible">` +
-    `<defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">` +
-    `<stop offset="0%" stop-color="${color}" stop-opacity="0.22"/>` +
-    `<stop offset="100%" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>` +
-    `<path d="${area}" fill="url(#${gid})"/>` +
-    `<path d="${line}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>` +
-    `<circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="2.4" fill="${color}" vector-effect="non-scaling-stroke"/></svg>`;
+
+  // Build the SVG once per host, then update path data in place so the
+  // line slides instead of flashing on every poll, and GSAP has a stable target.
+  let c = el._spark;
+  const firstBuild = !c || c.h !== H;
+  if (firstBuild) {
+    const gid = 'g' + Math.random().toString(36).slice(2, 7);
+    el.innerHTML =
+      `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%;height:${H}px;overflow:visible">` +
+      `<defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">` +
+      `<stop offset="0%" stop-color="${color}" stop-opacity="0.22"/>` +
+      `<stop offset="100%" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>` +
+      `<path class="sp-area" d="" fill="url(#${gid})"/>` +
+      `<path class="sp-line" d="" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>` +
+      `<circle class="sp-dot" r="2.4" fill="${color}" vector-effect="non-scaling-stroke"/></svg>`;
+    c = el._spark = { h: H, area: el.querySelector('.sp-area'), line: el.querySelector('.sp-line'), dot: el.querySelector('.sp-dot') };
+  }
+  c.area.setAttribute('d', area);
+  c.line.setAttribute('d', line);
+  c.dot.setAttribute('cx', last[0].toFixed(1));
+  c.dot.setAttribute('cy', last[1].toFixed(1));
+  drawReveal(c.line, firstBuild || !!(opts && opts.drawOn));
 }
-function areaChart(el, data, color, h, band) {
+function areaChart(el, data, color, h, band, opts) {
   h = h || 110;
   if (!data || data.length < 2) {
     el.innerHTML = `<div class="note" style="height:${h}px;display:grid;place-items:center;text-align:center">Collecting trend… keep this page open.</div>`;
+    el._ac = null;
     return;
   }
   const W = 100, H = h;
@@ -115,7 +182,6 @@ function areaChart(el, data, color, h, band) {
   const line = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
   const area = line + ` L${W} ${H} L0 ${H} Z`;
   const last = pts[pts.length - 1];
-  const gid = 'g' + Math.random().toString(36).slice(2, 7);
   let bandSvg = '';
   if (band) {
     const t = yOf(band.hi), bh = yOf(band.lo) - yOf(band.hi);
@@ -123,16 +189,31 @@ function areaChart(el, data, color, h, band) {
       `<line x1="0" y1="${t.toFixed(1)}" x2="${W}" y2="${t.toFixed(1)}" stroke="var(--leaf)" stroke-width="1" stroke-dasharray="3 3" vector-effect="non-scaling-stroke" opacity="0.5"/>` +
       `<line x1="0" y1="${(t + bh).toFixed(1)}" x2="${W}" y2="${(t + bh).toFixed(1)}" stroke="var(--leaf)" stroke-width="1" stroke-dasharray="3 3" vector-effect="non-scaling-stroke" opacity="0.5"/>`;
   }
-  const grid = [0.25, 0.5, 0.75].map((g) => `<line x1="0" y1="${(H * g).toFixed(1)}" x2="${W}" y2="${(H * g).toFixed(1)}" stroke="var(--line)" stroke-width="1" vector-effect="non-scaling-stroke"/>`).join('');
-  el.innerHTML =
-    `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%;height:${H}px;overflow:visible">` +
-    `<defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">` +
-    `<stop offset="0%" stop-color="${color}" stop-opacity="0.26"/>` +
-    `<stop offset="100%" stop-color="${color}" stop-opacity="0.01"/></linearGradient></defs>` +
-    grid + bandSvg +
-    `<path d="${area}" fill="url(#${gid})"/>` +
-    `<path d="${line}" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>` +
-    `<circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="3" fill="${color}" vector-effect="non-scaling-stroke"/></svg>`;
+
+  // Build once per host; update paths + band (band geometry shifts with config) in place.
+  let c = el._ac;
+  const firstBuild = !c || c.h !== H;
+  if (firstBuild) {
+    const gid = 'g' + Math.random().toString(36).slice(2, 7);
+    const grid = [0.25, 0.5, 0.75].map((g) => `<line x1="0" y1="${(H * g).toFixed(1)}" x2="${W}" y2="${(H * g).toFixed(1)}" stroke="var(--line)" stroke-width="1" vector-effect="non-scaling-stroke"/>`).join('');
+    el.innerHTML =
+      `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%;height:${H}px;overflow:visible">` +
+      `<defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">` +
+      `<stop offset="0%" stop-color="${color}" stop-opacity="0.26"/>` +
+      `<stop offset="100%" stop-color="${color}" stop-opacity="0.01"/></linearGradient></defs>` +
+      grid +
+      `<g class="ac-band"></g>` +
+      `<path class="ac-area" d="" fill="url(#${gid})"/>` +
+      `<path class="ac-line" d="" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>` +
+      `<circle class="ac-dot" r="3" fill="${color}" vector-effect="non-scaling-stroke"/></svg>`;
+    c = el._ac = { h: H, band: el.querySelector('.ac-band'), area: el.querySelector('.ac-area'), line: el.querySelector('.ac-line'), dot: el.querySelector('.ac-dot') };
+  }
+  c.band.innerHTML = bandSvg;
+  c.area.setAttribute('d', area);
+  c.line.setAttribute('d', line);
+  c.dot.setAttribute('cx', last[0].toFixed(1));
+  c.dot.setAttribute('cy', last[1].toFixed(1));
+  drawReveal(c.line, firstBuild || !!(opts && opts.drawOn));
 }
 
 /* ---- client-side history buffer ---------------------------- */
@@ -169,12 +250,48 @@ let bedPlants = loadBedPlants();
 let maintenance = false, lastData = {}, lastDiag = {};
 let lastPollOk = false, lastDiagAt = 0, pollDelay = 2000;
 let firstPollDone = false;
+let drawCharts = false; // set when the dash view is (re)activated; consumed once by renderDash
+let prevWaterCrit = false, prevEmerg = false; // rising-edge tracking for the fault attention cue
 const valveState = [false, false, false, false, false];
 let pumpOn = false;
 const swatchColor = (name) => {
   let h = 0; for (let i = 0; i < (name || '?').length; i++) h = (h * 31 + name.charCodeAt(i)) % 360;
   return `hsl(${h} 38% 42%)`;
 };
+
+/* ---- metric tiles : build once, then update value in place ---- */
+let metricsBuilt = false;
+function buildMetrics(tiles) {
+  if (metricsBuilt) return;
+  $('#dash-metrics').innerHTML = tiles.map(([dom, ic, name]) =>
+    `<div class="metric" data-domain="${dom}"><div class="m-top"><span class="m-name">${name}</span>` +
+    `<span class="m-ico"><svg class="ic" data-ic="${ic}"></svg></span></div>` +
+    `<div class="m-val" id="mv-${dom}"></div>` +
+    `<div class="m-spark" id="sp-${dom}"></div></div>`).join('');
+  initIcons($('#dash-metrics'));
+  metricsBuilt = true;
+}
+function updateMetric(dom, val, dec, unit, loading, skelSpan) {
+  const host = $('#mv-' + dom);
+  if (!host) return;
+  if (loading) { host.innerHTML = skelSpan('3.2ch', '.85em'); host._mt = null; return; }
+  let nEl = host.querySelector('.n');
+  if (!nEl) { host.innerHTML = `<span class="n"></span><span class="u">${unit}</span>`; nEl = host.querySelector('.n'); host._mt = null; }
+  const finite = typeof val === 'number' && isFinite(val);
+  // `host._mt` is one persistent state object per tile, so overwrite:true actually
+  // cancels the in-flight tween (a fresh object each poll would let tweens stack).
+  const st = host._mt;
+  if (!finite) { if (window.gsap && st) gsap.killTweensOf(st); host._mt = null; nEl.textContent = '—'; return; }
+  const step = dec === 1 ? 0.1 : 1;
+  // No motion, no prior value, or change below display resolution → set directly.
+  if (!MOTION.on || !st || !isFinite(st.v) || Math.abs(st.v - val) < step) {
+    if (window.gsap && st) gsap.killTweensOf(st);
+    host._mt = { v: val };
+    nEl.textContent = val.toFixed(dec);
+    return;
+  }
+  gsap.to(st, { v: val, duration: 0.6, overwrite: true, snap: { v: step }, onUpdate() { nEl.textContent = st.v.toFixed(dec); } });
+}
 
 /* ============================================================
    RENDER — live (every poll)
@@ -200,27 +317,25 @@ function renderDash() {
       `<span class="chip ${c}"><span class="dot"></span>${l} · <strong style="font-weight:700">${t}</strong></span>`).join('');
   }
 
-  // metrics
-  const soilAvg = Array.isArray(d.soilPerc) ? Math.round(d.soilPerc.reduce((a, b) => a + b, 0) / d.soilPerc.length) : '—';
+  // metrics — built once; values tween in place so readouts settle like an instrument needle.
+  const soilAvg = Array.isArray(d.soilPerc) && d.soilPerc.length
+    ? d.soilPerc.reduce((a, b) => a + b, 0) / d.soilPerc.length : null;
   const tiles = [
-    ['temp', 'temp', 'Temp', fmt(d.tempC, 1), '°C', hist.temp, 'var(--terra)'],
-    ['hum', 'drop', 'Humidity', fmt(d.humPerc, 0), '%', hist.hum, 'var(--sky)'],
-    ['light', 'sun', 'Light', fmt(d.lux, 0), 'lx', hist.lux, 'var(--sun)'],
-    ['soil', 'leaf', 'Soil avg', soilAvg, '%', avgSeries(), 'var(--leaf)'],
+    ['temp',  'temp', 'Temp',     d.tempC,   1, '°C', hist.temp,   'var(--terra)'],
+    ['hum',   'drop', 'Humidity', d.humPerc, 0, '%',  hist.hum,    'var(--sky)'],
+    ['light', 'sun',  'Light',    d.lux,     0, 'lx', hist.lux,    'var(--sun)'],
+    ['soil',  'leaf', 'Soil avg', soilAvg,   0, '%',  avgSeries(), 'var(--leaf)'],
   ];
-  $('#dash-metrics').innerHTML = tiles.map(([dom, ic, name, val, u]) =>
-    `<div class="metric" data-domain="${dom}"><div class="m-top"><span class="m-name">${name}</span>` +
-    `<span class="m-ico"><svg class="ic" data-ic="${ic}"></svg></span></div>` +
-    `<div class="m-val">${loading ? skelSpan('3.2ch', '.85em') : val + '<span class="u">' + u + '</span>'}</div>` +
-    `<div class="m-spark" id="sp-${dom}"></div></div>`).join('');
-  initIcons($('#dash-metrics'));
-  tiles.forEach(([dom, , , , , series, color]) => spark($('#sp-' + dom), series, color, 30));
+  buildMetrics(tiles);
+  const drawOn = drawCharts; drawCharts = false; // one-shot draw-on after dash (re)activation
+  tiles.forEach(([dom, , , val, dec, unit]) => updateMetric(dom, val, dec, unit, loading, skelSpan));
+  tiles.forEach(([dom, , , , , , series, color]) => spark($('#sp-' + dom), series, color, 30, { drawOn }));
 
   // temp + light charts
   $('#temp-target-note').textContent = `target ${config.tempTarget}±${config.tempHyst}°C`;
-  areaChart($('#chart-temp'), hist.temp, 'var(--terra)', 116, { lo: config.tempTarget - config.tempHyst, hi: config.tempTarget + config.tempHyst });
+  areaChart($('#chart-temp'), hist.temp, 'var(--terra)', 116, { lo: config.tempTarget - config.tempHyst, hi: config.tempTarget + config.tempHyst }, { drawOn });
   $('#light-note').textContent = loading ? '' : `${fmt(d.lux, 0)} lx now`;
-  areaChart($('#chart-light'), hist.lux, 'var(--sun)', 92);
+  areaChart($('#chart-light'), hist.lux, 'var(--sun)', 92, null, { drawOn });
 
   // dashboard beds
   $('#soil-avg-note').textContent = loading ? '' : 'avg ' + soilAvg + '%';
@@ -368,13 +483,7 @@ function setBedFill(i, perc) {
   document.getElementById(`irr-pct-${i}`).textContent = Math.round(perc) + '%';
 }
 
-const IRRA = { state: '', bed: -1, flow: null, drop: null, reduce: false };
-
-(function () {
-  const mm = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)');
-  IRRA.reduce = !!(mm && mm.matches);
-  if (mm && mm.addEventListener) mm.addEventListener('change', e => { IRRA.reduce = e.matches; });
-})();
+const IRRA = { state: '', bed: -1, flow: null, drop: null };
 
 function irrKillFlow() {
   if (IRRA.flow) { IRRA.flow.kill(); IRRA.flow = null; }
@@ -393,7 +502,7 @@ function irrStartFlow(bed) {
   const pipe = document.getElementById(`irr-pipe-${bed}`);
   const drop = document.getElementById(`irr-drop-${bed}`);
   document.getElementById(`irr-bed-${bed}`).classList.add('active');
-  if (IRRA.reduce) { pipe.classList.add('flowing'); return; } // static highlight only
+  if (!MOTION.on) { pipe.classList.add('flowing'); return; } // static highlight only
   pipe.classList.add('flowing');
   const len = pipe.getTotalLength();
   drop.setAttribute('opacity', '1');
@@ -602,6 +711,13 @@ async function pollOnce() {
     const lw = $('#led-water');
     lw.className = 'led ' + (!d.waterCritical ? 'err' : !d.waterLow ? 'warn' : 'on');
     lw.setAttribute('aria-label', 'Water: ' + (!d.waterCritical ? 'critical' : !d.waterLow ? 'low' : 'OK'));
+    // one-time calm cue on the rising edge of a critical condition (steady-state is the CSS pulse)
+    const waterCrit = !d.waterCritical;
+    if (waterCrit && !prevWaterCrit) faultCue(lw);
+    prevWaterCrit = waterCrit;
+    const emerg = !!d.EMERGENCY_STOP;
+    if (emerg && !prevEmerg) faultCue($('#led-fault'));
+    prevEmerg = emerg;
     updateMaintUI();
     setOnline(true);
     lastPollOk = true;
@@ -1032,6 +1148,8 @@ function init() {
   loadPlants();
   loadConfig();
   autoSyncTime();
+  drawCharts = true;            // first paint of the dash draws charts/sparks in
+  revealView($('#dash'));       // stagger the default view on load
   poll();
   // Self-scheduling poll loop: pauses while the tab is hidden (cheap 1 s
   // idle check), backs off exponentially to 30 s while the device is
