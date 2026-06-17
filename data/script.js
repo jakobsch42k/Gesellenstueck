@@ -224,6 +224,20 @@ function renderDash() {
 
   // dashboard beds
   $('#soil-avg-note').textContent = loading ? '' : 'avg ' + soilAvg + '%';
+  // Auto mode → irrigation map replaces the sorted soil list.
+  const autoMode = !loading && !lastData.MAINTENANCE_MODE;
+  const map = $('#irrig-map'), list = $('#dash-beds'), soilH = $('#soil-card-h');
+  if (autoMode) {
+    map.hidden = false; list.hidden = true;
+    soilH.innerHTML = '<svg class="ic" data-ic="drop"></svg> Irrigation · live';
+    initIcons(soilH);
+    renderIrrigationMap();
+    return; // skip list render below
+  } else {
+    map.hidden = true; list.hidden = false;
+    soilH.innerHTML = '<svg class="ic" data-ic="leaf"></svg> Soil moisture · 5 beds';
+    initIcons(soilH);
+  }
   if (loading) {
     $('#dash-beds').innerHTML = Array(5).fill(0).map(() =>
       `<div class="bed">` +
@@ -244,6 +258,10 @@ function renderDash() {
         return bedRow(i, name, m, target, low);
       }).join('');
   }
+}
+function renderIrrigationMap() {
+  // Filled in Task 4/5. Placeholder keeps auto mode from throwing.
+  $('#irrig-map').innerHTML = '<div class="note">irrigation map — coming up</div>';
 }
 function avgSeries() {
   // Average only channels that have data, aligned from the tail — one dead
