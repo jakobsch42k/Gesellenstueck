@@ -149,7 +149,7 @@ function pushHist(d) {
 
 /* ---- shared state ------------------------------------------ */
 const PLANT_KEY = 'hb_bedplants';
-let config = { moisture: [40, 50, 60, 70, 80], luxTarget: 800, tempTarget: 24, tempHyst: 2, lightProfile: new Array(24).fill(50) };
+let config = { moisture: [40, 50, 60, 70, 80], luxTarget: 800, tempTarget: 24, tempHyst: 2, lightProfile: new Array(24).fill(50), nextBed: 0 };
 let plants = [];
 // Versioned envelope: a structurally different value (key reuse, bed-count
 // or shape change in a future version) must not flow into rendering.
@@ -234,6 +234,7 @@ function renderDash() {
     renderIrrigationMap();
     return; // skip list render below
   } else {
+    if (typeof irrKillFlow === 'function' && IRR.built) irrKillFlow();
     map.hidden = true; list.hidden = false;
     soilH.innerHTML = '<svg class="ic" data-ic="leaf"></svg> Soil moisture · 5 beds';
     initIcons(soilH);
@@ -367,11 +368,93 @@ function setBedFill(i, perc) {
   document.getElementById(`irr-pct-${i}`).textContent = Math.round(perc) + '%';
 }
 
+const IRRA = { state: '', bed: -1, flow: null, drop: null, reduce: false };
+
+(function () {
+  const mm = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)');
+  IRRA.reduce = !!(mm && mm.matches);
+  if (mm && mm.addEventListener) mm.addEventListener('change', e => { IRRA.reduce = e.matches; });
+})();
+
+function irrKillFlow() {
+  if (IRRA.flow) { IRRA.flow.kill(); IRRA.flow = null; }
+  if (IRRA.drop) { IRRA.drop.kill(); IRRA.drop = null; }
+  for (let i = 0; i < IRR.beds; i++) {
+    const d = document.getElementById(`irr-drop-${i}`);
+    if (d) d.setAttribute('opacity', '0');
+    const p = document.getElementById(`irr-pipe-${i}`);
+    if (p) p.classList.remove('flowing');
+    const b = document.getElementById(`irr-bed-${i}`);
+    if (b) b.classList.remove('active', 'absorbing', 'next');
+  }
+}
+
+function irrStartFlow(bed) {
+  const pipe = document.getElementById(`irr-pipe-${bed}`);
+  const drop = document.getElementById(`irr-drop-${bed}`);
+  document.getElementById(`irr-bed-${bed}`).classList.add('active');
+  if (IRRA.reduce) { pipe.classList.add('flowing'); return; } // static highlight only
+  pipe.classList.add('flowing');
+  const len = pipe.getTotalLength();
+  drop.setAttribute('opacity', '1');
+  const o = { t: 0 };
+  IRRA.drop = gsap.to(o, {
+    t: 1, duration: 1.1, ease: 'none', repeat: -1,
+    onUpdate() {
+      const pt = pipe.getPointAtLength(o.t * len);
+      drop.setAttribute('cx', pt.x); drop.setAttribute('cy', pt.y);
+    }
+  });
+}
+
+function fmtMMSS(ms) {
+  const s = Math.max(0, Math.round(ms / 1000));
+  return String((s / 60) | 0).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+}
+
+function nextDriestBed() {
+  // mirror firmware round-robin from config.nextBed; first bed below target.
+  const n = IRR.beds, soil = lastData.soilPerc || [], start = config.nextBed || 0;
+  for (let k = 0; k < n; k++) {
+    const i = (start + k) % n;
+    if (soil[i] != null && soil[i] < config.moisture[i]) return i;
+  }
+  return -1;
+}
+
 function renderIrrigationMap() {
   if (!IRR.built) buildIrrSvg();
   const soil = lastData.soilPerc || [];
   for (let i = 0; i < IRR.beds; i++) setBedFill(i, soil[i] ?? 0);
-  // animation/state handled in Task 5
+
+  const locked = !lastData.waterCritical || lastData.EMERGENCY_STOP;
+  const ps = (lastData.pumpStatus || 'IDLE').toUpperCase();
+  const bed = (typeof lastData.activeBed === 'number') ? lastData.activeBed : -1;
+  const validBed = bed >= 0 && bed < IRR.beds;
+  const status = document.getElementById('irr-status');
+  const tank = document.getElementById('irr-tank');
+  const tankT = document.getElementById('irr-tank-t');
+
+  // derive a single display state
+  const ds = locked ? 'LOCKED'
+           : (ps === 'PUMPING' && validBed) ? 'PUMPING'
+           : (ps === 'PAUSING' && validBed) ? 'PAUSING' : 'IDLE';
+
+  if (ds !== IRRA.state || bed !== IRRA.bed) {
+    irrKillFlow();
+    tank.classList.toggle('locked', ds === 'LOCKED');
+    if (ds === 'PUMPING') irrStartFlow(bed);
+    else if (ds === 'PAUSING') document.getElementById(`irr-bed-${bed}`).classList.add('absorbing');
+    else if (ds === 'IDLE') { const nb = nextDriestBed(); if (nb >= 0) document.getElementById(`irr-bed-${nb}`).classList.add('next'); }
+    IRRA.state = ds; IRRA.bed = bed;
+  }
+
+  tankT.textContent = ds === 'LOCKED' ? 'STOP' : 'TANK';
+  status.textContent =
+    ds === 'LOCKED'  ? 'Water critical — locked' :
+    ds === 'PUMPING' ? `Watering B${bed + 1} · ${fmtMMSS(lastData.irrigRemainMs)}` :
+    ds === 'PAUSING' ? `Diffusion B${bed + 1} · ${fmtMMSS(lastData.irrigRemainMs)}` :
+                       'Scanning beds';
 }
 function avgSeries() {
   // Average only channels that have data, aligned from the tail — one dead
@@ -601,6 +684,7 @@ async function loadConfig() {
     if (c.tempHysteresis != null) config.tempHyst = c.tempHysteresis;
     else if (c.tempHyst != null) config.tempHyst = c.tempHyst;
     if (Array.isArray(c.lightProfile) && c.lightProfile.length === 24) config.lightProfile = c.lightProfile.slice();
+    if (c.nextBed != null) config.nextBed = c.nextBed;
   } catch (e) { /* keep defaults offline */ }
   buildBeds(); buildLightProfile(); buildSteppers();
 }
