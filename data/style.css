@@ -293,3 +293,29 @@ select.sel { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w
 .log-lvl.err  { color:var(--rose); border-color:var(--rose-t); }
 .log-tag { font-size:10px; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; color:var(--ink-2); }
 .log-msg { font-size:13px; color:var(--ink); line-height:1.4; word-break:break-word; }
+
+/* ── Irrigation map ─────────────────────────────────────────── */
+#irrig-map { margin-top: 6px; }
+.irr-svg { width: 100%; height: auto; display: block; overflow: visible; }
+.irr-pipe { fill: none; stroke: var(--line, #d8dcd6); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.irr-pipe.flowing { stroke: var(--sky); stroke-dasharray: 5 7; animation: irr-flow .6s linear infinite; }
+@keyframes irr-flow { to { stroke-dashoffset: -12; } }
+.irr-drop { fill: var(--sky); }
+.irr-tank { fill: var(--card, #fff); stroke: var(--sky); stroke-width: 2; }
+.irr-tank.locked { stroke: var(--terra); fill: color-mix(in oklab, var(--terra) 14%, transparent); }
+.irr-tank-t { fill: var(--ink); font: 700 11px/1 system-ui, sans-serif; text-anchor: middle; letter-spacing: .5px; }
+.irr-bed { fill: var(--card, #fff); stroke: var(--line, #d8dcd6); stroke-width: 1.5; }
+.irr-bed.active { stroke: var(--sky); stroke-width: 2.5; filter: drop-shadow(0 0 5px color-mix(in oklab, var(--sky) 55%, transparent)); }
+.irr-bed.absorbing { stroke: var(--leaf); animation: irr-pulse 1.4s ease-in-out infinite; }
+.irr-bed.next { stroke: var(--leaf); stroke-dasharray: 4 4; }
+@keyframes irr-pulse { 0%,100% { stroke-opacity: 1; } 50% { stroke-opacity: .35; } }
+.irr-fill { fill: color-mix(in oklab, var(--leaf) 55%, transparent); transition: height .5s ease, y .5s ease; }
+.irr-target { stroke: var(--terra); stroke-width: 1.5; stroke-dasharray: 3 3; }
+.irr-bed-l { fill: var(--ink); font: 600 11px/1 system-ui, sans-serif; text-anchor: middle; }
+.irr-bed-p { fill: var(--ink-2, #6C6457); font: 500 10px/1 system-ui, sans-serif; text-anchor: middle; }
+.irr-status { fill: var(--ink-2, #6C6457); font: 500 11px/1 system-ui, sans-serif; text-anchor: middle; }
+@media (prefers-reduced-motion: reduce) {
+  .irr-pipe.flowing { animation: none; }
+  .irr-bed.absorbing { animation: none; }
+  .irr-fill { transition: none; }
+}
