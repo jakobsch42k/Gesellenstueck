@@ -32,6 +32,12 @@ struct Config {
     // Bed setpoints
     int           moisture[NUM_BEDS];    // Target soil moisture 0–100% per bed
 
+    // Irrigation fairness: index of bed the next IDLE scan starts from. Rotates
+    // so beds take turns under contention (bed 1 only re-watered after bed 5).
+    // Updated in RAM by the irrigation FSM; persisted opportunistically on the
+    // next config save (best-effort across reboots).
+    uint8_t       nextBed;
+
     // Roof temperature control
     float         tempTarget;             // Target temperature in °C
     float         tempHysteresis;         // Hysteresis band in °C

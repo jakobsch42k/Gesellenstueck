@@ -8,7 +8,7 @@
 class IrrigationController {
 public:
     void            init(Actuators& actuators);
-    void            update(const LiveData& data, const Config& cfg, ErrorFlags& err);
+    void            update(const LiveData& data, Config& cfg, ErrorFlags& err);
     IrrigationState getState() const { return state; }
     int             getActiveBed() const { return activeBed; } // -1 when idle
 

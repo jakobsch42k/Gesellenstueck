@@ -16,6 +16,8 @@ enum FSResult {
 static void applyDefaults(Config& cfg) {
     for (int i = 0; i < NUM_BEDS; i++) cfg.moisture[i] = DEFAULT_MOISTURE;
 
+    cfg.nextBed               = 0;
+
     cfg.tempTarget            = DEFAULT_TEMP_TARGET;
     cfg.tempHysteresis        = DEFAULT_TEMP_HYSTERESIS;
     cfg.luxTarget             = DEFAULT_LUX_TARGET;
@@ -40,6 +42,8 @@ static void applyDefaults(Config& cfg) {
 static void configToJson(const Config& cfg, JsonDocument& doc) {
     JsonArray moisture = doc["moisture"].to<JsonArray>();
     for (int i = 0; i < NUM_BEDS; i++) moisture.add(cfg.moisture[i]);
+
+    doc["nextBed"]               = cfg.nextBed;
 
     doc["tempTarget"]            = cfg.tempTarget;
     doc["tempHysteresis"]        = cfg.tempHysteresis;
@@ -73,6 +77,8 @@ static bool jsonToConfig(const JsonDocument& doc, Config& cfg) {
     JsonArrayConst moisture = doc["moisture"].as<JsonArrayConst>();
     if (moisture.size() < NUM_BEDS) return false;
     for (int i = 0; i < NUM_BEDS; i++) cfg.moisture[i] = moisture[i];
+
+    cfg.nextBed               = doc["nextBed"] | 0;
 
     cfg.tempTarget            = doc["tempTarget"]            | DEFAULT_TEMP_TARGET;
     cfg.tempHysteresis        = doc["tempHysteresis"]        | DEFAULT_TEMP_HYSTERESIS;
@@ -108,6 +114,13 @@ static bool jsonToConfig(const JsonDocument& doc, Config& cfg) {
         cfg.irrigationDuration_ms > IRRIGATE_MS_MAX) {
         Serial.println("[fileManager] irrigationDuration_ms out of range — reset to default");
         cfg.irrigationDuration_ms = DEFAULT_IRRIGATE_MS;
+    }
+
+    // Guard a corrupt/out-of-range rotation pointer (e.g. NUM_BEDS shrank, or a
+    // hand-edited config). An out-of-bounds index would corrupt the bed scan.
+    if (cfg.nextBed >= NUM_BEDS) {
+        Serial.println("[fileManager] nextBed out of range — reset to 0");
+        cfg.nextBed = 0;
     }
 
     return true;

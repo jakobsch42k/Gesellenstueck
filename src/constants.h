@@ -73,7 +73,7 @@ constexpr uint8_t NUM_BEDS = 5;   // Raised beds: soil sensors, valves, moisture
 #define BLINK_INTERVAL_MS           500UL // Warning LED blink half-period
 
 // ── Config File ──────────────────────────────────────────────────────────────
-#define CONFIG_VERSION                2
+#define CONFIG_VERSION                3
 #define CONFIG_PATH            "/config.json"
 #define CONFIG_TMP_PATH        "/config.tmp"
 #define CONFIG_BAK1_PATH       "/config.bak1"
