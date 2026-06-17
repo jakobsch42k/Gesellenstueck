@@ -259,9 +259,118 @@ function renderDash() {
       }).join('');
   }
 }
+const IRR = { built: false, beds: 5, W: 320, H: 210 };
+
+function irrLayout() {
+  // x-centres for 5 beds across the width; pump centred at top.
+  const n = IRR.beds, pad = 26, span = (IRR.W - pad * 2) / (n - 1);
+  const bedX = Array.from({ length: n }, (_, i) => pad + i * span);
+  return { bedX, pumpX: IRR.W / 2, pumpY: 26, bedTop: 120, bedH: 64, bedW: 40 };
+}
+
+function buildIrrSvg() {
+  const L = irrLayout();
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${IRR.W} ${IRR.H}`);
+  svg.setAttribute('class', 'irr-svg');
+  svg.setAttribute('role', 'img');
+  svg.setAttribute('aria-label', 'Irrigation map');
+
+  // pipes pump -> bed (built first so beds render above them)
+  L.bedX.forEach((x, i) => {
+    const p = document.createElementNS(ns, 'path');
+    const d = `M ${L.pumpX} ${L.pumpY + 16} L ${L.pumpX} 70 L ${x} 70 L ${x} ${L.bedTop}`;
+    p.setAttribute('d', d);
+    p.setAttribute('class', 'irr-pipe');
+    p.setAttribute('id', `irr-pipe-${i}`);
+    svg.appendChild(p);
+  });
+
+  // droplet (one reused circle per bed, hidden until pumping)
+  L.bedX.forEach((x, i) => {
+    const c = document.createElementNS(ns, 'circle');
+    c.setAttribute('r', '3'); c.setAttribute('class', 'irr-drop');
+    c.setAttribute('id', `irr-drop-${i}`); c.setAttribute('opacity', '0');
+    svg.appendChild(c);
+  });
+
+  // pump/tank node
+  const tank = document.createElementNS(ns, 'rect');
+  tank.setAttribute('x', L.pumpX - 34); tank.setAttribute('y', 8);
+  tank.setAttribute('width', 68); tank.setAttribute('height', 26);
+  tank.setAttribute('rx', 6); tank.setAttribute('class', 'irr-tank');
+  tank.setAttribute('id', 'irr-tank');
+  svg.appendChild(tank);
+  const tlabel = document.createElementNS(ns, 'text');
+  tlabel.setAttribute('x', L.pumpX); tlabel.setAttribute('y', 25);
+  tlabel.setAttribute('class', 'irr-tank-t'); tlabel.setAttribute('id', 'irr-tank-t');
+  tlabel.textContent = 'TANK';
+  svg.appendChild(tlabel);
+
+  // beds: outline, soil fill (anchored at bottom), target line, label, %
+  L.bedX.forEach((x, i) => {
+    const bx = x - L.bedW / 2;
+    const outline = document.createElementNS(ns, 'rect');
+    outline.setAttribute('x', bx); outline.setAttribute('y', L.bedTop);
+    outline.setAttribute('width', L.bedW); outline.setAttribute('height', L.bedH);
+    outline.setAttribute('rx', 5); outline.setAttribute('class', 'irr-bed');
+    outline.setAttribute('id', `irr-bed-${i}`);
+    svg.appendChild(outline);
+
+    const fill = document.createElementNS(ns, 'rect');
+    fill.setAttribute('x', bx); fill.setAttribute('width', L.bedW);
+    fill.setAttribute('rx', 5); fill.setAttribute('class', 'irr-fill');
+    fill.setAttribute('id', `irr-fill-${i}`);
+    svg.appendChild(fill);
+
+    const tgt = document.createElementNS(ns, 'line');
+    tgt.setAttribute('x1', bx); tgt.setAttribute('x2', bx + L.bedW);
+    tgt.setAttribute('class', 'irr-target'); tgt.setAttribute('id', `irr-tgt-${i}`);
+    svg.appendChild(tgt);
+
+    const lbl = document.createElementNS(ns, 'text');
+    lbl.setAttribute('x', x); lbl.setAttribute('y', L.bedTop + L.bedH + 14);
+    lbl.setAttribute('class', 'irr-bed-l');
+    lbl.textContent = 'B' + (i + 1);
+    svg.appendChild(lbl);
+
+    const pct = document.createElementNS(ns, 'text');
+    pct.setAttribute('x', x); pct.setAttribute('y', L.bedTop + L.bedH + 27);
+    pct.setAttribute('class', 'irr-bed-p'); pct.setAttribute('id', `irr-pct-${i}`);
+    pct.textContent = '—';
+    svg.appendChild(pct);
+  });
+
+  // status line (countdown / state)
+  const status = document.createElementNS(ns, 'text');
+  status.setAttribute('x', IRR.W / 2); status.setAttribute('y', IRR.H - 4);
+  status.setAttribute('class', 'irr-status'); status.setAttribute('id', 'irr-status');
+  svg.appendChild(status);
+
+  const host = $('#irrig-map');
+  host.innerHTML = '';
+  host.appendChild(svg);
+  IRR.built = true;
+}
+
+function setBedFill(i, perc) {
+  const L = irrLayout();
+  const h = Math.max(0, Math.min(100, perc)) / 100 * L.bedH;
+  const fill = document.getElementById(`irr-fill-${i}`);
+  fill.setAttribute('height', h);
+  fill.setAttribute('y', L.bedTop + L.bedH - h);
+  const tgtY = L.bedTop + L.bedH - (config.moisture[i] / 100 * L.bedH);
+  const tgt = document.getElementById(`irr-tgt-${i}`);
+  tgt.setAttribute('y1', tgtY); tgt.setAttribute('y2', tgtY);
+  document.getElementById(`irr-pct-${i}`).textContent = Math.round(perc) + '%';
+}
+
 function renderIrrigationMap() {
-  // Filled in Task 4/5. Placeholder keeps auto mode from throwing.
-  $('#irrig-map').innerHTML = '<div class="note">irrigation map — coming up</div>';
+  if (!IRR.built) buildIrrSvg();
+  const soil = lastData.soilPerc || [];
+  for (let i = 0; i < IRR.beds; i++) setBedFill(i, soil[i] || 0);
+  // animation/state handled in Task 5
 }
 function avgSeries() {
   // Average only channels that have data, aligned from the tail — one dead
