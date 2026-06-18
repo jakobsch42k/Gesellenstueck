@@ -44,7 +44,10 @@ const MOTION = {
     MOTION.reduce = e.matches;
     document.documentElement.classList.toggle('js-motion', MOTION.on);
   });
-  if (window.gsap) gsap.defaults({ ease: 'power4.out', duration: 0.6 });
+  if (window.gsap) {
+    gsap.defaults({ ease: 'power4.out', duration: 0.6 });
+    if (window.Flip) gsap.registerPlugin(Flip); // bed-reorder animation
+  }
   document.documentElement.classList.toggle('js-motion', MOTION.on);
 })();
 
@@ -261,6 +264,7 @@ const swatchColor = (name) => {
 
 /* ---- metric tiles : build once, then update value in place ---- */
 let metricsBuilt = false;
+const chipState = {}; // label -> last state class, for chip-flip pop (#4)
 function buildMetrics(tiles) {
   if (metricsBuilt) return;
   $('#dash-metrics').innerHTML = tiles.map(([dom, ic, name]) =>
@@ -290,6 +294,13 @@ function updateMetric(dom, val, dec, unit, loading, skelSpan) {
     nEl.textContent = val.toFixed(dec);
     return;
   }
+  // Direction cue: brief color flash — rising leans green, falling terra — so a
+  // changing value reads at a glance before the needle settles.
+  const up = val > st.v;
+  gsap.from(nEl, {
+    color: up ? 'var(--leaf)' : 'var(--terra)',
+    duration: 0.9, ease: 'power2.out', overwrite: 'auto', clearProps: 'color',
+  });
   gsap.to(st, { v: val, duration: 0.6, overwrite: true, snap: { v: step }, onUpdate() { nEl.textContent = st.v.toFixed(dec); } });
 }
 
@@ -314,7 +325,24 @@ function renderDash() {
       ['Water', !d.waterCritical ? 'err' : !d.waterLow ? 'warn' : 'on', !d.waterCritical ? 'Crit' : !d.waterLow ? 'Low' : 'OK'],
     ];
     $('#dash-chips').innerHTML = chips.map(([l, c, t]) =>
-      `<span class="chip ${c}"><span class="dot"></span>${l} · <strong style="font-weight:700">${t}</strong></span>`).join('');
+      `<span class="chip ${c}" data-chip="${l}"><span class="dot"></span>${l} · <strong style="font-weight:700">${t}</strong></span>`).join('');
+    // Pop any chip whose state class changed since last poll, so a roof/pump/
+    // water flip catches the eye instead of swapping silently.
+    if (MOTION.on) {
+      chips.forEach(([l, c]) => {
+        if (chipState[l] !== undefined && chipState[l] !== c) {
+          const el = $(`#dash-chips [data-chip="${l}"]`);
+          if (el) gsap.fromTo(el, { scale: 1 }, {
+            scale: 1.14, duration: 0.16, yoyo: true, repeat: 1,
+            ease: 'power2.inOut', transformOrigin: '50% 50%',
+            overwrite: true, clearProps: 'transform',
+          });
+        }
+        chipState[l] = c;
+      });
+    } else {
+      chips.forEach(([l, c]) => { chipState[l] = c; });
+    }
   }
 
   // metrics — built once; values tween in place so readouts settle like an instrument needle.
@@ -358,6 +386,11 @@ function renderDash() {
       `</div><div class="skel" style="height:7px;margin-top:8px;border-radius:100px"></div></div></div>`
     ).join('');
   } else {
+    // Capture current row positions before the rewrite so Flip can slide rows
+    // to their new slots when urgency re-sorts them (matched by data-flip-id).
+    const flipAble = MOTION.on && window.Flip;
+    const beforeState = flipAble && $('#dash-beds').children.length
+      ? Flip.getState('#dash-beds .bed') : null;
     // sort beds by urgency: driest relative to target first ("Bed N" labels keep identity clear)
     $('#dash-beds').innerHTML = (d.soilPerc || [])
       .map((m, i) => ({ m, i }))
@@ -368,6 +401,7 @@ function renderDash() {
         const name = bedPlants[i] || ('Bed ' + (i + 1));
         return bedRow(i, name, m, target, low);
       }).join('');
+    if (beforeState) Flip.from(beforeState, { duration: 0.5, ease: 'power2.inOut', absolute: true });
   }
 }
 const IRR = { built: false, beds: 5, W: 320, H: 230 };
@@ -602,7 +636,7 @@ function avgSeries() {
   return out;
 }
 function bedRow(i, name, m, target, low) {
-  return `<div class="bed"><div class="swatch" style="background:${swatchColor(name)}">${(name[0] || 'B').toUpperCase()}</div>` +
+  return `<div class="bed" data-flip-id="bed-${i}"><div class="swatch" style="background:${swatchColor(name)}">${(name[0] || 'B').toUpperCase()}</div>` +
     `<div class="b-main"><div class="b-top"><span><span class="b-plant">${esc(name)}</span> <span class="b-id">Bed ${i + 1}</span></span>` +
     `<span class="b-val ${low ? 'low' : ''}">${m}% <span class="muted">/ ${target}</span></span></div>` +
     `<div class="moist-track"><div class="moist-fill ${low ? 'low' : ''}" style="width:${m}%"></div>` +
