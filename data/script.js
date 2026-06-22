@@ -653,7 +653,7 @@ function bedRow(i, name, m, target, low) {
    plants wilt by soil-vs-target, watering droplets, narrative status line.
    Driven entirely by existing /data.json + /diagnostics; no firmware change.
    ============================================================ */
-const HERO = { built: false, W: 360, H: 200 };
+const HERO = { built: false, W: 360, H: 210 };
 const HEROA = { drops: {} };
 let lastNarr = '';
 const G = (id) => document.getElementById(id);
@@ -686,47 +686,66 @@ function skyColors(tod, lux) {
   return { top: lerpHex(a[1], b[1], t), bot: lerpHex(a[2], b[2], t), h, isDay, nightness };
 }
 
+const HERO_BX = [60, 120, 180, 240, 300], HERO_SOIL = 150, HERO_BOT = 170;
 function buildHeroSvg() {
   const host = $('#garden-hero'); if (!host) return;
   const W = HERO.W, H = HERO.H;
+  const LEAF = 'M0 0 C -7 -5 -8 -16 0 -21 C 8 -16 7 -5 0 0 Z';
   let beds = '';
-  for (let i = 0; i < 5; i++) {
-    const cx = 36 + i * 72, boxW = 46, bx = cx - boxW / 2, soilTop = 160, boxBot = 188;
+  HERO_BX.forEach((cx, i) => {
+    const bx = cx - 24;
     beds +=
       `<g class="hero-bed" data-bed="${i}">` +
-      `<rect x="${bx}" y="${soilTop}" width="${boxW}" height="${boxBot - soilTop}" rx="4" class="hero-box"/>` +
-      `<rect x="${bx + 2}" y="${soilTop + 2}" width="${boxW - 4}" height="${boxBot - soilTop - 4}" rx="3" class="hero-soil"/>` +
-      `<g id="hero-plant-${i}" style="transform-box:fill-box;transform-origin:50% 100%">` +
-      `<path id="hero-stem-${i}" class="hero-stem" d="M${cx} ${soilTop} q -2 -14 0 -28"/>` +
-      `<ellipse id="hero-leafL-${i}" class="hero-leaf" cx="${cx - 7}" cy="${soilTop - 20}" rx="7" ry="4" transform="rotate(-28 ${cx - 7} ${soilTop - 20})"/>` +
-      `<ellipse id="hero-leafR-${i}" class="hero-leaf" cx="${cx + 7}" cy="${soilTop - 24}" rx="7" ry="4" transform="rotate(28 ${cx + 7} ${soilTop - 24})"/>` +
-      `<circle id="hero-bud-${i}" class="hero-leaf" cx="${cx}" cy="${soilTop - 30}" r="4"/>` +
+      `<rect x="${bx}" y="${HERO_SOIL - 2}" width="48" height="${HERO_BOT - HERO_SOIL + 2}" rx="6" fill="url(#hero-pot)"/>` +
+      `<rect x="${bx}" y="${HERO_SOIL - 2}" width="48" height="6" rx="3" fill="#5e472b" opacity="0.45"/>` +
+      `<ellipse cx="${cx}" cy="${HERO_SOIL}" rx="22" ry="5" fill="#3f3120"/>` +
+      `<g id="hero-plant-${i}">` +
+      `<path id="hero-stem-${i}" class="hero-stem" d="M${cx} ${HERO_SOIL} q 0 -18 0 -34"/>` +
+      `<path class="hero-leaf" d="${LEAF}" transform="translate(${cx} ${HERO_SOIL - 12}) rotate(-54) scale(0.95)"/>` +
+      `<path class="hero-leaf" d="${LEAF}" transform="translate(${cx} ${HERO_SOIL - 12}) rotate(54) scale(0.95)"/>` +
+      `<path class="hero-leaf" d="${LEAF}" transform="translate(${cx} ${HERO_SOIL - 24}) rotate(-30) scale(0.82)"/>` +
+      `<path class="hero-leaf" d="${LEAF}" transform="translate(${cx} ${HERO_SOIL - 24}) rotate(30) scale(0.82)"/>` +
+      `<path class="hero-leaf" d="${LEAF}" transform="translate(${cx} ${HERO_SOIL - 34}) scale(0.66)"/>` +
       `</g>` +
-      `<circle id="hero-drop-${i}-0" class="hero-drop" cx="${cx}" cy="130" r="2.4" opacity="0"/>` +
-      `<circle id="hero-drop-${i}-1" class="hero-drop" cx="${cx - 4}" cy="130" r="2" opacity="0"/>` +
-      `<text x="${cx}" y="${boxBot + 11}" class="hero-bed-l">B${i + 1}</text>` +
+      `<circle id="hero-drop-${i}-0" class="hero-drop" cx="${cx}" cy="120" r="2.4" opacity="0"/>` +
+      `<circle id="hero-drop-${i}-1" class="hero-drop" cx="${cx - 4}" cy="120" r="2" opacity="0"/>` +
+      `<text x="${cx}" y="${HERO_BOT + 13}" class="hero-bed-l">B${i + 1}</text>` +
       `</g>`;
-  }
+  });
   let stars = '';
-  [[40, 28], [90, 48], [150, 22], [210, 40], [280, 30], [320, 54], [120, 64], [250, 60]]
-    .forEach(([x, y], k) => stars += `<circle class="hero-star" cx="${x}" cy="${y}" r="${k % 2 ? 0.8 : 1.2}"/>`);
+  [[40, 26], [88, 44], [150, 20], [206, 38], [276, 28], [322, 50], [120, 60], [250, 56]]
+    .forEach(([x, y], k) => stars += `<circle class="hero-star" cx="${x}" cy="${y}" r="${k % 2 ? 0.7 : 1.1}"/>`);
+  const cloud = (x, y, s) =>
+    `<g transform="translate(${x} ${y}) scale(${s})" filter="url(#hero-soft)">` +
+    `<ellipse cx="0" cy="0" rx="26" ry="11" fill="#fff" opacity="0.9"/>` +
+    `<ellipse cx="-16" cy="4" rx="15" ry="9" fill="#fff" opacity="0.85"/>` +
+    `<ellipse cx="15" cy="4" rx="15" ry="9" fill="#fff" opacity="0.85"/></g>`;
   host.innerHTML =
     `<svg class="hero-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Greenhouse overview">` +
     `<defs>` +
     `<linearGradient id="hero-sky" x1="0" y1="0" x2="0" y2="1">` +
-    `<stop id="hero-sky0" offset="0%" stop-color="#7db4dd"/>` +
-    `<stop id="hero-sky1" offset="100%" stop-color="#e7ddc6"/></linearGradient>` +
-    `<pattern id="hero-hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">` +
-    `<rect width="8" height="8" fill="#8fb39a"/><line x1="0" y1="0" x2="0" y2="8" stroke="#7da588" stroke-width="4"/></pattern>` +
+    `<stop id="hero-sky0" offset="0%" stop-color="#5b86c4"/>` +
+    `<stop id="hero-sky1" offset="55%" stop-color="#9cc0dd"/>` +
+    `<stop id="hero-sky2" offset="100%" stop-color="#e7ddc6"/></linearGradient>` +
+    `<radialGradient id="hero-sunglow" cx="50%" cy="50%" r="50%">` +
+    `<stop offset="0%" stop-color="#FCD66A" stop-opacity="0.65"/>` +
+    `<stop offset="100%" stop-color="#FCD66A" stop-opacity="0"/></radialGradient>` +
+    `<linearGradient id="hero-pot" x1="0" y1="0" x2="0" y2="1">` +
+    `<stop offset="0%" stop-color="#b06a43"/><stop offset="100%" stop-color="#7a4a2c"/></linearGradient>` +
+    `<linearGradient id="hero-glass" x1="0" y1="0" x2="0" y2="1">` +
+    `<stop offset="0%" stop-color="#dff0f5" stop-opacity="0.42"/>` +
+    `<stop offset="100%" stop-color="#bfe0ea" stop-opacity="0.28"/></linearGradient>` +
+    `<filter id="hero-soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.2"/></filter>` +
     `</defs>` +
     `<rect x="0" y="0" width="${W}" height="${H}" fill="url(#hero-sky)"/>` +
     `<g id="hero-stars" opacity="0">${stars}</g>` +
-    `<circle id="hero-halo" cx="300" cy="40" r="22" fill="#F2C14E" opacity="0.18"/>` +
-    `<circle id="hero-sun" cx="300" cy="40" r="13" fill="#F2C14E"/>` +
-    `<rect x="0" y="150" width="${W}" height="${H - 150}" class="hero-ground"/>` +
+    `<circle id="hero-glow" cx="300" cy="40" r="34" fill="url(#hero-sunglow)"/>` +
+    `<circle id="hero-sun" cx="300" cy="40" r="13" fill="#FCD66A"/>` +
+    `<g id="hero-clouds" opacity="0">${cloud(78, 44, 1)}${cloud(252, 36, 0.8)}</g>` +
+    `<path class="hero-ground" d="M0 168 Q 90 160 180 168 T 360 168 L360 ${H} L0 ${H} Z"/>` +
     beds +
-    `<rect id="hero-roof" x="0" y="0" width="${W}" height="120" fill="url(#hero-hatch)" opacity="0.93"/>` +
-    `<line id="hero-roof-edge" x1="${W}" y1="0" x2="${W}" y2="120" class="hero-roof-edge"/>` +
+    `<rect id="hero-roof" x="0" y="82" width="${W}" height="88" rx="3" fill="url(#hero-glass)" stroke="#ffffff" stroke-opacity="0.45" stroke-width="1"/>` +
+    `<line id="hero-roof-edge" x1="${W}" y1="82" x2="${W}" y2="170" class="hero-roof-edge"/>` +
     `</svg>` +
     `<div class="hero-narrative" id="hero-narrative"></div>`;
   HERO.built = true;
@@ -742,11 +761,11 @@ function setHeroDrops(i, on) {
     const ds = [G(`hero-drop-${i}-0`), G(`hero-drop-${i}-1`)];
     if (!ds[0]) return;
     if (!MOTION.on) { ds.forEach((d) => d.setAttribute('opacity', '0.8')); HEROA.drops[i] = 'static'; return; }
-    const cx = 36 + i * 72;
+    const cx = HERO_BX[i];
     const tl = gsap.timeline({ repeat: -1 });
     ds.forEach((d, k) => {
       gsap.set(d, { attr: { cx: cx - 2 + k * 4 } });
-      tl.fromTo(d, { attr: { cy: 132 }, opacity: 0 }, { attr: { cy: 176 }, opacity: 1, duration: 0.7, ease: 'power1.in' }, k * 0.35)
+      tl.fromTo(d, { attr: { cy: 118 }, opacity: 0 }, { attr: { cy: 150 }, opacity: 1, duration: 0.7, ease: 'power1.in' }, k * 0.35)
         .to(d, { opacity: 0, duration: 0.15 }, '>-0.05');
     });
     HEROA.drops[i] = tl;
@@ -792,21 +811,25 @@ function updateHero() {
   const d = lastData, W = HERO.W;
   const sc = skyColors(d.timeOfDay || 0, d.lux || 0);
   G('hero-sky0').setAttribute('stop-color', sc.top);
-  G('hero-sky1').setAttribute('stop-color', sc.bot);
+  G('hero-sky1').setAttribute('stop-color', lerpHex(sc.top, sc.bot, 0.5));
+  G('hero-sky2').setAttribute('stop-color', sc.bot);
   G('hero-stars').setAttribute('opacity', sc.nightness.toFixed(2));
+  G('hero-clouds').setAttribute('opacity', ((1 - sc.nightness) * 0.85).toFixed(2));
 
-  // sun by day, moon by night, both riding the same arc
+  // sun by day, moon by night, riding an arc above the frame
   let cx, cy, col;
-  if (sc.isDay) { const f = clamp((sc.h - 6) / 14, 0, 1); cx = 24 + f * (W - 48); cy = 150 - Math.sin(f * Math.PI) * 120; col = '#F2C14E'; }
-  else { const nh = sc.h < 6 ? sc.h + 24 : sc.h, f = clamp((nh - 20) / 10, 0, 1); cx = 24 + f * (W - 48); cy = 150 - Math.sin(f * Math.PI) * 120; col = '#cfd6e6'; }
-  ['hero-sun', 'hero-halo'].forEach((id) => { const e = G(id); e.setAttribute('cx', cx.toFixed(1)); e.setAttribute('cy', cy.toFixed(1)); e.setAttribute('fill', col); });
+  if (sc.isDay) { const f = clamp((sc.h - 6) / 14, 0, 1); cx = 30 + f * (W - 60); cy = 100 - Math.sin(f * Math.PI) * 78; col = '#FCD66A'; }
+  else { const nh = sc.h < 6 ? sc.h + 24 : sc.h, f = clamp((nh - 20) / 10, 0, 1); cx = 30 + f * (W - 60); cy = 100 - Math.sin(f * Math.PI) * 78; col = '#dfe4ee'; }
+  ['hero-sun', 'hero-glow'].forEach((id) => { const e = G(id); e.setAttribute('cx', cx.toFixed(1)); e.setAttribute('cy', cy.toFixed(1)); });
+  G('hero-sun').setAttribute('fill', col);
+  G('hero-glow').setAttribute('opacity', sc.isDay ? '1' : '0.4');
 
-  // roof slides open/closed with the FSM state
+  // glass lid slides open/closed with the roof FSM state
   const rs = (lastDiag.roofState || 'IDLE').toUpperCase();
-  const rw = (rs === 'OPEN' || rs === 'OPENING') ? W * 0.12 : W;
+  const rw = (rs === 'OPEN' || rs === 'OPENING') ? W * 0.1 : W;
   const roof = G('hero-roof'), edge = G('hero-roof-edge');
   if (MOTION.on) {
-    gsap.to(roof, { attr: { width: rw }, duration: 0.8, ease: 'power2.inOut', overwrite: true,
+    gsap.to(roof, { attr: { width: rw }, duration: 0.9, ease: 'power2.inOut', overwrite: true,
       onUpdate() { const w = +roof.getAttribute('width'); edge.setAttribute('x1', w); edge.setAttribute('x2', w); } });
   } else { roof.setAttribute('width', rw); edge.setAttribute('x1', rw); edge.setAttribute('x2', rw); }
 
@@ -814,17 +837,17 @@ function updateHero() {
   const soil = d.soilPerc || [], ps = (d.pumpStatus || '').toUpperCase();
   const ab = typeof d.activeBed === 'number' ? d.activeBed : -1;
   for (let i = 0; i < 5; i++) {
-    const m = soil[i], tgt = config.moisture[i] || 50;
-    let ang = 0, leaf = '#4E8A5A', stem = '#4E8A5A';
+    const m = soil[i], tgt = config.moisture[i] || 50, ox = HERO_BX[i];
+    let ang = 0, leaf = '#4e8a5a', stem = '#3f7a4c';
     if (typeof m === 'number') {
       const dl = m - tgt;
-      if (dl <= -20) { ang = 22; leaf = '#bf8a3f'; stem = '#9a7b4a'; }
-      else if (dl <= -8) { ang = 11; leaf = '#9aa83f'; stem = '#6f7a4a'; }
+      if (dl <= -20) { ang = 26; leaf = '#b0763a'; stem = '#8a6a3f'; }   // wilting — drooped, tan
+      else if (dl <= -8) { ang = 14; leaf = '#b3ad4a'; stem = '#7d7a3e'; } // thirsty — leaning, yellow-olive
     }
     const g = G('hero-plant-' + i);
-    if (MOTION.on) gsap.to(g, { rotation: ang, duration: 1.0, ease: 'power2.out', overwrite: true, transformOrigin: '50% 100%' });
-    else g.style.transform = `rotate(${ang}deg)`;
-    ['hero-leafL-', 'hero-leafR-', 'hero-bud-'].forEach((p) => G(p + i).setAttribute('fill', leaf));
+    if (MOTION.on) gsap.to(g, { rotation: ang, duration: 1.0, ease: 'power2.out', overwrite: true, svgOrigin: `${ox} ${HERO_SOIL}` });
+    else g.setAttribute('transform', `rotate(${ang} ${ox} ${HERO_SOIL})`);
+    g.querySelectorAll('.hero-leaf').forEach((l) => l.setAttribute('fill', leaf));
     G('hero-stem-' + i).setAttribute('stroke', stem);
     setHeroDrops(i, ps === 'PUMPING' && ab === i);
   }

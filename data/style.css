@@ -332,10 +332,8 @@ select.sel { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w
 .hero { position: relative; border-radius: var(--r); overflow: hidden; border: 1px solid var(--line); background: var(--card); box-shadow: var(--shadow); }
 .hero-svg { display: block; width: 100%; height: auto; }
 .hero-ground { fill: #6b5436; }
-.hero-box { fill: #7a5c39; stroke: #5e472b; stroke-width: 1.5; }
-.hero-soil { fill: #4a3a25; }
-.hero-stem { fill: none; stroke: var(--leaf); stroke-width: 2.4; stroke-linecap: round; }
-.hero-leaf { transition: fill .6s ease; }
+.hero-stem { fill: none; stroke: var(--leaf); stroke-width: 2.8; stroke-linecap: round; }
+.hero-leaf { fill: #4e8a5a; transition: fill .6s ease; }
 .hero-star { fill: #fff; }
 .hero-drop { fill: #7ec8e3; }
 .hero-roof-edge { stroke: var(--leaf); stroke-width: 3; }
