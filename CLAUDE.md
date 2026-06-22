@@ -26,6 +26,8 @@ pio run --target upload && pio device monitor
 ```
 
 > **Note:** The web UI (index.html, script.js, style.css) lives in `data/` and must be uploaded separately with `uploadfs` whenever changed. Config changes made at runtime persist to LittleFS automatically.
+>
+> **Asset gzip:** `gzip_assets.py` (pre-`uploadfs` hook in `platformio.ini`) stages a compressed copy of `data/` — HTML/CSS/JS become `<name>.gz` — and the LittleFS image is built from that. `data/` stays the editable source; `.gz` twins are generated per build, never committed. The firmware's `serveFile` prefers a `.gz` twin (serves it with `Content-Encoding: gzip`) and falls back to the raw file. `config.json`/`plants.json` stay raw (opened directly, not via `serveFile`). Re-run `uploadfs` to deploy UI changes.
 
 ## Architecture
 
