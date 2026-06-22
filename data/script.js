@@ -310,6 +310,10 @@ function updateMetric(dom, val, dec, unit, loading, skelSpan) {
 function renderDash() {
   const d = lastData;
   const loading = !firstPollDone;
+
+  // Living greenhouse hero sits above everything and updates in both auto and
+  // maintenance modes; wrapped so a scene error can never break the dashboard.
+  try { updateHero(); } catch (e) {}
   const skelSpan = (w, h) => `<span class="skel" style="display:inline-block;width:${w};height:${h};border-radius:3px;vertical-align:middle"></span>`;
 
   // chips
@@ -641,6 +645,191 @@ function bedRow(i, name, m, target, low) {
     `<span class="b-val ${low ? 'low' : ''}">${m}% <span class="muted">/ ${target}</span></span></div>` +
     `<div class="moist-track"><div class="moist-fill ${low ? 'low' : ''}" style="width:${m}%"></div>` +
     `<div class="moist-target" style="left:${target}%"></div></div></div></div>`;
+}
+
+/* ============================================================
+   LIVING GREENHOUSE HERO  (ambient scene, top of Garden tab)
+   Sky/sun by timeOfDay, sliding roof by roof state, 5 planter beds whose
+   plants wilt by soil-vs-target, watering droplets, narrative status line.
+   Driven entirely by existing /data.json + /diagnostics; no firmware change.
+   ============================================================ */
+const HERO = { built: false, W: 360, H: 200 };
+const HEROA = { drops: {} };
+let lastNarr = '';
+const G = (id) => document.getElementById(id);
+
+function lerpHex(a, b, t) {
+  const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
+  const ar = pa >> 16, ag = (pa >> 8) & 255, ab = pa & 255;
+  const br = pb >> 16, bg = (pb >> 8) & 255, bb = pb & 255;
+  const r = Math.round(ar + (br - ar) * t), g = Math.round(ag + (bg - ag) * t), bl = Math.round(ab + (bb - ab) * t);
+  return '#' + (1 << 24 | r << 16 | g << 8 | bl).toString(16).slice(1);
+}
+
+/* timeOfDay (s) + lux → sky gradient + day/night. Falls back to lux when the
+   controller clock is unset (timeOfDay 0), so the scene is never stuck at midnight. */
+function skyColors(tod, lux) {
+  let h = tod > 0 ? tod / 3600 : (lux > 3000 ? 13 : lux > 500 ? 9 : 21);
+  h = ((h % 24) + 24) % 24;
+  const stops = [
+    [0, '#0d1326', '#172033'], [5.5, '#2a3a5a', '#c98a5e'], [7, '#8fb4d8', '#e9dcc0'],
+    [12, '#7db4dd', '#e7ddc6'], [17, '#86a9c6', '#e7d3b0'], [19, '#3a4a6a', '#d68a4f'],
+    [20.5, '#1a2238', '#3a3550'], [24, '#0d1326', '#172033'],
+  ];
+  let a = stops[0], b = stops[stops.length - 1];
+  for (let i = 0; i < stops.length - 1; i++) {
+    if (h >= stops[i][0] && h <= stops[i + 1][0]) { a = stops[i]; b = stops[i + 1]; break; }
+  }
+  const t = (h - a[0]) / ((b[0] - a[0]) || 1);
+  const isDay = h >= 6 && h < 20;
+  const nightness = clamp(h < 6 ? 1 : h < 7 ? 7 - h : h < 19 ? 0 : h < 20 ? h - 19 : 1, 0, 1);
+  return { top: lerpHex(a[1], b[1], t), bot: lerpHex(a[2], b[2], t), h, isDay, nightness };
+}
+
+function buildHeroSvg() {
+  const host = $('#garden-hero'); if (!host) return;
+  const W = HERO.W, H = HERO.H;
+  let beds = '';
+  for (let i = 0; i < 5; i++) {
+    const cx = 36 + i * 72, boxW = 46, bx = cx - boxW / 2, soilTop = 160, boxBot = 188;
+    beds +=
+      `<g class="hero-bed" data-bed="${i}">` +
+      `<rect x="${bx}" y="${soilTop}" width="${boxW}" height="${boxBot - soilTop}" rx="4" class="hero-box"/>` +
+      `<rect x="${bx + 2}" y="${soilTop + 2}" width="${boxW - 4}" height="${boxBot - soilTop - 4}" rx="3" class="hero-soil"/>` +
+      `<g id="hero-plant-${i}" style="transform-box:fill-box;transform-origin:50% 100%">` +
+      `<path id="hero-stem-${i}" class="hero-stem" d="M${cx} ${soilTop} q -2 -14 0 -28"/>` +
+      `<ellipse id="hero-leafL-${i}" class="hero-leaf" cx="${cx - 7}" cy="${soilTop - 20}" rx="7" ry="4" transform="rotate(-28 ${cx - 7} ${soilTop - 20})"/>` +
+      `<ellipse id="hero-leafR-${i}" class="hero-leaf" cx="${cx + 7}" cy="${soilTop - 24}" rx="7" ry="4" transform="rotate(28 ${cx + 7} ${soilTop - 24})"/>` +
+      `<circle id="hero-bud-${i}" class="hero-leaf" cx="${cx}" cy="${soilTop - 30}" r="4"/>` +
+      `</g>` +
+      `<circle id="hero-drop-${i}-0" class="hero-drop" cx="${cx}" cy="130" r="2.4" opacity="0"/>` +
+      `<circle id="hero-drop-${i}-1" class="hero-drop" cx="${cx - 4}" cy="130" r="2" opacity="0"/>` +
+      `<text x="${cx}" y="${boxBot + 11}" class="hero-bed-l">B${i + 1}</text>` +
+      `</g>`;
+  }
+  let stars = '';
+  [[40, 28], [90, 48], [150, 22], [210, 40], [280, 30], [320, 54], [120, 64], [250, 60]]
+    .forEach(([x, y], k) => stars += `<circle class="hero-star" cx="${x}" cy="${y}" r="${k % 2 ? 0.8 : 1.2}"/>`);
+  host.innerHTML =
+    `<svg class="hero-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Greenhouse overview">` +
+    `<defs>` +
+    `<linearGradient id="hero-sky" x1="0" y1="0" x2="0" y2="1">` +
+    `<stop id="hero-sky0" offset="0%" stop-color="#7db4dd"/>` +
+    `<stop id="hero-sky1" offset="100%" stop-color="#e7ddc6"/></linearGradient>` +
+    `<pattern id="hero-hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">` +
+    `<rect width="8" height="8" fill="#8fb39a"/><line x1="0" y1="0" x2="0" y2="8" stroke="#7da588" stroke-width="4"/></pattern>` +
+    `</defs>` +
+    `<rect x="0" y="0" width="${W}" height="${H}" fill="url(#hero-sky)"/>` +
+    `<g id="hero-stars" opacity="0">${stars}</g>` +
+    `<circle id="hero-halo" cx="300" cy="40" r="22" fill="#F2C14E" opacity="0.18"/>` +
+    `<circle id="hero-sun" cx="300" cy="40" r="13" fill="#F2C14E"/>` +
+    `<rect x="0" y="150" width="${W}" height="${H - 150}" class="hero-ground"/>` +
+    beds +
+    `<rect id="hero-roof" x="0" y="0" width="${W}" height="120" fill="url(#hero-hatch)" opacity="0.93"/>` +
+    `<line id="hero-roof-edge" x1="${W}" y1="0" x2="${W}" y2="120" class="hero-roof-edge"/>` +
+    `</svg>` +
+    `<div class="hero-narrative" id="hero-narrative"></div>`;
+  HERO.built = true;
+  host.hidden = false;
+}
+
+/* Watering droplets on the active bed — repeating fall, killed when the bed
+   stops pumping. Static dots when motion is off. */
+function setHeroDrops(i, on) {
+  const t = HEROA.drops[i];
+  if (on) {
+    if (t) return;
+    const ds = [G(`hero-drop-${i}-0`), G(`hero-drop-${i}-1`)];
+    if (!ds[0]) return;
+    if (!MOTION.on) { ds.forEach((d) => d.setAttribute('opacity', '0.8')); HEROA.drops[i] = 'static'; return; }
+    const cx = 36 + i * 72;
+    const tl = gsap.timeline({ repeat: -1 });
+    ds.forEach((d, k) => {
+      gsap.set(d, { attr: { cx: cx - 2 + k * 4 } });
+      tl.fromTo(d, { attr: { cy: 132 }, opacity: 0 }, { attr: { cy: 176 }, opacity: 1, duration: 0.7, ease: 'power1.in' }, k * 0.35)
+        .to(d, { opacity: 0, duration: 0.15 }, '>-0.05');
+    });
+    HEROA.drops[i] = tl;
+  } else if (t) {
+    if (t !== 'static') t.kill();
+    [0, 1].forEach((k) => { const d = G(`hero-drop-${i}-${k}`); if (d) { gsap.killTweensOf(d); d.setAttribute('opacity', '0'); } });
+    delete HEROA.drops[i];
+  }
+}
+
+/* One-sentence plain-language status, priority-ordered. */
+function buildNarrative(d) {
+  if (d.EMERGENCY_STOP) return 'Emergency stop — everything parked.';
+  if (d.waterCritical === false) return 'Reservoir empty — pump locked.';
+  if (d.MAINTENANCE_MODE) return 'Maintenance mode — automatic control paused.';
+  const rs = (lastDiag.roofState || '').toUpperCase();
+  const ps = (d.pumpStatus || '').toUpperCase();
+  const ab = typeof d.activeBed === 'number' ? d.activeBed : -1;
+  if (ps === 'PUMPING' && ab >= 0) {
+    const nm = bedPlants[ab] || ('Bed ' + (ab + 1));
+    return `${nm} watering — ${Math.max(0, Math.round((d.irrigRemainMs || 0) / 1000))}s left.`;
+  }
+  if (rs === 'OPENING') return 'Roof opening to cool down.';
+  if (rs === 'CLOSING') return 'Roof closing.';
+  const soil = d.soilPerc || [];
+  let thirsty = 0;
+  for (let i = 0; i < 5; i++) if (typeof soil[i] === 'number' && soil[i] < (config.moisture[i] || 50) - 8) thirsty++;
+  const roofTxt = rs === 'OPEN' ? 'Roof open' : 'Roof closed';
+  if (d.waterLow === false) return `${roofTxt}. Low water — top up soon.`;
+  if (thirsty > 0) return `${roofTxt}. ${thirsty} bed${thirsty > 1 ? 's' : ''} getting thirsty.`;
+  return `${roofTxt}. All beds healthy.`;
+}
+function setNarrative(txt) {
+  const el = G('hero-narrative'); if (!el || txt === lastNarr) return;
+  lastNarr = txt;
+  if (MOTION.on) gsap.fromTo(el, { opacity: 0, y: 4 }, { opacity: 1, y: 0, duration: 0.4, overwrite: true, onStart() { el.textContent = txt; } });
+  else el.textContent = txt;
+}
+
+function updateHero() {
+  if (!firstPollDone) return;
+  if (!HERO.built) buildHeroSvg();
+  const d = lastData, W = HERO.W;
+  const sc = skyColors(d.timeOfDay || 0, d.lux || 0);
+  G('hero-sky0').setAttribute('stop-color', sc.top);
+  G('hero-sky1').setAttribute('stop-color', sc.bot);
+  G('hero-stars').setAttribute('opacity', sc.nightness.toFixed(2));
+
+  // sun by day, moon by night, both riding the same arc
+  let cx, cy, col;
+  if (sc.isDay) { const f = clamp((sc.h - 6) / 14, 0, 1); cx = 24 + f * (W - 48); cy = 150 - Math.sin(f * Math.PI) * 120; col = '#F2C14E'; }
+  else { const nh = sc.h < 6 ? sc.h + 24 : sc.h, f = clamp((nh - 20) / 10, 0, 1); cx = 24 + f * (W - 48); cy = 150 - Math.sin(f * Math.PI) * 120; col = '#cfd6e6'; }
+  ['hero-sun', 'hero-halo'].forEach((id) => { const e = G(id); e.setAttribute('cx', cx.toFixed(1)); e.setAttribute('cy', cy.toFixed(1)); e.setAttribute('fill', col); });
+
+  // roof slides open/closed with the FSM state
+  const rs = (lastDiag.roofState || 'IDLE').toUpperCase();
+  const rw = (rs === 'OPEN' || rs === 'OPENING') ? W * 0.12 : W;
+  const roof = G('hero-roof'), edge = G('hero-roof-edge');
+  if (MOTION.on) {
+    gsap.to(roof, { attr: { width: rw }, duration: 0.8, ease: 'power2.inOut', overwrite: true,
+      onUpdate() { const w = +roof.getAttribute('width'); edge.setAttribute('x1', w); edge.setAttribute('x2', w); } });
+  } else { roof.setAttribute('width', rw); edge.setAttribute('x1', rw); edge.setAttribute('x2', rw); }
+
+  // bed plants: droop + colour by soil-vs-target; droplets on the watered bed
+  const soil = d.soilPerc || [], ps = (d.pumpStatus || '').toUpperCase();
+  const ab = typeof d.activeBed === 'number' ? d.activeBed : -1;
+  for (let i = 0; i < 5; i++) {
+    const m = soil[i], tgt = config.moisture[i] || 50;
+    let ang = 0, leaf = '#4E8A5A', stem = '#4E8A5A';
+    if (typeof m === 'number') {
+      const dl = m - tgt;
+      if (dl <= -20) { ang = 22; leaf = '#bf8a3f'; stem = '#9a7b4a'; }
+      else if (dl <= -8) { ang = 11; leaf = '#9aa83f'; stem = '#6f7a4a'; }
+    }
+    const g = G('hero-plant-' + i);
+    if (MOTION.on) gsap.to(g, { rotation: ang, duration: 1.0, ease: 'power2.out', overwrite: true, transformOrigin: '50% 100%' });
+    else g.style.transform = `rotate(${ang}deg)`;
+    ['hero-leafL-', 'hero-leafR-', 'hero-bud-'].forEach((p) => G(p + i).setAttribute('fill', leaf));
+    G('hero-stem-' + i).setAttribute('stroke', stem);
+    setHeroDrops(i, ps === 'PUMPING' && ab === i);
+  }
+
+  setNarrative(buildNarrative(d));
 }
 
 function renderDiag() {

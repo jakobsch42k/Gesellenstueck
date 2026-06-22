@@ -322,3 +322,23 @@ select.sel { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w
   .irr-bed.absorbing { animation: none; }
   .irr-fill { transition: none; }
 }
+
+/* ── Living greenhouse hero ──────────────────────────────────── */
+/* Ambient scene at the top of the Garden tab: sky + sun/moon arc by
+   time-of-day, sliding roof by roof state, 5 planter beds whose plants
+   wilt/perk by soil-vs-target, watering droplets on the active bed, and a
+   plain-language status line. Scene depicts the real outdoor state, so its
+   colours are driven by sensor data, not the UI day/dusk theme. */
+.hero { position: relative; border-radius: var(--r); overflow: hidden; border: 1px solid var(--line); background: var(--card); box-shadow: var(--shadow); }
+.hero-svg { display: block; width: 100%; height: auto; }
+.hero-ground { fill: #6b5436; }
+.hero-box { fill: #7a5c39; stroke: #5e472b; stroke-width: 1.5; }
+.hero-soil { fill: #4a3a25; }
+.hero-stem { fill: none; stroke: var(--leaf); stroke-width: 2.4; stroke-linecap: round; }
+.hero-leaf { transition: fill .6s ease; }
+.hero-star { fill: #fff; }
+.hero-drop { fill: #7ec8e3; }
+.hero-roof-edge { stroke: var(--leaf); stroke-width: 3; }
+.hero-bed-l { fill: #fff; font: 700 9px/1 var(--sans); text-anchor: middle; letter-spacing: .06em; opacity: .85; }
+.hero-narrative { font-family: var(--serif); font-size: 13.5px; font-weight: 500; color: var(--ink); padding: 8px 13px; border-top: 1px solid var(--line); line-height: 1.35; }
+@media (prefers-reduced-motion: reduce) { .hero-leaf { transition: none; } }
