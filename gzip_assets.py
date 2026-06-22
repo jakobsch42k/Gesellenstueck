@@ -60,8 +60,24 @@ def stage_compressed_assets(*args, **kwargs):
           % (compressed, copied, STAGE_DIR))
 
 
-# Redirect the LittleFS image source to the staging dir, and populate it just
-# before the image is assembled. Firmware-only builds (`pio run`) never build
-# the fs image, so the hook does no work there.
+# Stage eagerly at config time (every invocation) so the staging dir reflects
+# the CURRENT data/ BEFORE SCons computes the littlefs.bin dependency graph,
+# then point the image builder at it.
+#
+# Why eager and not just AddPreAction: SCons tracks the image's sources by the
+# staging dir, not data/. A PreAction-only hook leaves staging stale between
+# runs, so SCons judges the image up-to-date, skips the rebuild, never fires
+# the action, and ships an OLD filesystem after data/ edits. Regenerating up
+# front (plus removing any cached image below) guarantees uploadfs rebuilds
+# from the latest assets.
+stage_compressed_assets()
 env.Replace(PROJECT_DATA_DIR=STAGE_DIR)
-env.AddPreAction("$BUILD_DIR/littlefs.bin", stage_compressed_assets)
+
+# Belt-and-suspenders: drop any cached image so the fs is always reassembled
+# from the freshly staged assets.
+_image = os.path.join(env.subst("$BUILD_DIR"), "littlefs.bin")
+try:
+    if os.path.isfile(_image):
+        os.remove(_image)
+except OSError:
+    pass
