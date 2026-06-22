@@ -40,12 +40,15 @@ static bool serveFile(const String& path) {
     String p = path;
     if (p.endsWith("/")) p += "index.html";
     // Prefer a precompressed twin (foo.js.gz) when present — cuts flash + transfer.
-    // Browser inflates transparently via Content-Encoding. Falls back to the raw
-    // file, so this is safe whether or not .gz assets have been uploaded.
+    // streamFile() auto-adds `Content-Encoding: gzip` when the streamed file name
+    // ends in .gz (and the content type isn't gzip), so we must NOT add that
+    // header ourselves — doing so sends it twice and the browser double-inflates
+    // into garbage. We pass the *base* path to getContentType so the type stays
+    // text/html / application/javascript, which is what triggers the auto-header.
+    // Falls back to the raw file, so this is safe with or without .gz assets.
     String gz = p + ".gz";
     if (LittleFS.exists(gz)) {
         File f = LittleFS.open(gz, "r");
-        server.sendHeader("Content-Encoding", "gzip");
         server.streamFile(f, getContentType(p));
         f.close();
         return true;

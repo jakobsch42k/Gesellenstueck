@@ -171,4 +171,11 @@ Rules:
 
 ## Known Issues & Failed Attempts
 
-_Entries added here as problems are encountered during development._
+### Double Content-Encoding on gzipped assets → garbage in browser
+**What failed:** `serveFile` manually called `server.sendHeader("Content-Encoding", "gzip")` before `streamFile` when serving a `.gz` twin. The page rendered as random symbols.
+**Why:** ESP32 Arduino `WebServer::streamFile` already auto-adds `Content-Encoding: gzip` when the streamed file name ends in `.gz` (and the content type isn't gzip/none). Adding it manually sent the header twice → browser double-inflated → garbage.
+**Fix / avoid:** Serve the `.gz` file with `streamFile(f, getContentType(basePath))` and do NOT add the header yourself. Pass the *base* path (no `.gz`) to `getContentType` so the type stays `text/html`/`application/javascript`, which is what triggers the core's auto-header.
+
+### gz assets require BOTH uploadfs AND a firmware flash
+**What failed:** Uploading the gzipped filesystem without re-flashing firmware (or vice versa) breaks the UI — old firmware can't find the now-`.gz`-only assets; gz-aware firmware needs the gz FS.
+**Fix / avoid:** After changing asset/serving logic, deploy both: `pio run -t upload` (firmware) and `pio run -t uploadfs` (filesystem).
