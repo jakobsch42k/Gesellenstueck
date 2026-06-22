@@ -13,8 +13,6 @@
 
 void SystemController::init() {
     Serial.begin(115200);
-    delay(500); // wait for serial monitor to connect
-
     Serial.println("[systemController] booting...");
 
     // 1. Actuators first — all outputs off before anything else runs

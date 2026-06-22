@@ -104,6 +104,12 @@ constexpr uint8_t  LOG_RING_SIZE = 40;      // RAM entries exposed via /logs.jso
 #define IRRIGATE_MS_MAX         120000UL
 #define IRRIGATE_PAUSE_MS_MIN    60000UL  // Floor: pause is the only re-irrigation guard (diffusion time)
 #define IRRIGATE_PAUSE_MS_MAX  3600000UL
+#define TEMP_TARGET_MIN            0.0f   // tempTarget accepted range (°C)
+#define TEMP_TARGET_MAX           60.0f
+#define TEMP_HYST_MIN              0.0f   // tempHysteresis: exclusive floor (h must be > this)
+#define TEMP_HYST_MAX             10.0f
+#define LUX_TARGET_MAX           100000   // luxTarget ceiling
+#define PLANT_NAME_MAX_LEN           20   // must match index.html maxlength on #new-plant-name
 #define SOIL_ADC_RAW_MAX           4095   // 12-bit ADC full scale
 // PWM floors keep the mechanics moving — below these the motor/pump stalls
 #define ROOF_OPEN_PWM_MIN            60

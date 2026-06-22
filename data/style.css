@@ -4,9 +4,8 @@
    No CDN dependencies — system-font fallbacks for offline use.
    ============================================================ */
 
-/* Fonts load only if the phone happens to have internet; otherwise
-   the system stacks below keep the warm serif/sans character. */
-@import url('https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=Hanken+Grotesk:wght@400;500;600;700&display=swap');
+/* No webfont @import: the device is an offline AP, so a Google Fonts request
+   only ever times out. The system serif/sans stacks below carry the design. */
 
 :root {
   --paper:#F1EBDD; --paper-2:#E8E0CE; --card:#FBF7EE; --card-2:#F6F0E3;

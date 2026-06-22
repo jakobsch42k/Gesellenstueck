@@ -24,18 +24,32 @@ static std::function<void(unsigned long)> _setTimeCb;
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 static String getContentType(const String& path) {
-    if (path.endsWith(".html")) return "text/html";
-    if (path.endsWith(".css"))  return "text/css";
-    if (path.endsWith(".js"))   return "application/javascript";
-    if (path.endsWith(".json")) return "application/json";
-    if (path.endsWith(".png"))  return "image/png";
-    if (path.endsWith(".ico"))  return "image/x-icon";
+    // Strip a precompression suffix so foo.js.gz reports the type of foo.js.
+    String p = path;
+    if (p.endsWith(".gz")) p = p.substring(0, p.length() - 3);
+    if (p.endsWith(".html")) return "text/html";
+    if (p.endsWith(".css"))  return "text/css";
+    if (p.endsWith(".js"))   return "application/javascript";
+    if (p.endsWith(".json")) return "application/json";
+    if (p.endsWith(".png"))  return "image/png";
+    if (p.endsWith(".ico"))  return "image/x-icon";
     return "application/octet-stream";
 }
 
 static bool serveFile(const String& path) {
     String p = path;
     if (p.endsWith("/")) p += "index.html";
+    // Prefer a precompressed twin (foo.js.gz) when present — cuts flash + transfer.
+    // Browser inflates transparently via Content-Encoding. Falls back to the raw
+    // file, so this is safe whether or not .gz assets have been uploaded.
+    String gz = p + ".gz";
+    if (LittleFS.exists(gz)) {
+        File f = LittleFS.open(gz, "r");
+        server.sendHeader("Content-Encoding", "gzip");
+        server.streamFile(f, getContentType(p));
+        f.close();
+        return true;
+    }
     if (!LittleFS.exists(p)) return false;
     File f = LittleFS.open(p, "r");
     server.streamFile(f, getContentType(p));
@@ -105,15 +119,15 @@ static bool validateConfig(const JsonDocument& doc, String& errMsg) {
     }
     if (!doc["tempTarget"].isNull()) {
         float t = doc["tempTarget"];
-        if (t < 0 || t > 60) { errMsg = "tempTarget out of range (0-60)"; return false; }
+        if (t < TEMP_TARGET_MIN || t > TEMP_TARGET_MAX) { errMsg = "tempTarget out of range (0-60)"; return false; }
     }
     if (!doc["tempHysteresis"].isNull()) {
         float h = doc["tempHysteresis"];
-        if (h <= 0 || h > 10) { errMsg = "tempHysteresis out of range (0.1-10)"; return false; }
+        if (h <= TEMP_HYST_MIN || h > TEMP_HYST_MAX) { errMsg = "tempHysteresis out of range (0.1-10)"; return false; }
     }
     if (!doc["luxTarget"].isNull()) {
         int l = doc["luxTarget"];
-        if (l < 0 || l > 100000) { errMsg = "luxTarget out of range"; return false; }
+        if (l < 0 || l > LUX_TARGET_MAX) { errMsg = "luxTarget out of range"; return false; }
     }
     if (!doc["lightProfile"].isNull()) {
         JsonArrayConst p = doc["lightProfile"].as<JsonArrayConst>();
@@ -293,7 +307,10 @@ static void handleLoadConfig() {
     f.close();
 }
 
-static void handleSaveConfig() {
+// Shared body of /saveConfig and /importConfig: both validate a (partial) JSON
+// payload, merge it into the live config, and persist. They differ only in the
+// success status string.
+static void saveConfigFromBody(const char* successStatus) {
     if (errFlags->ERR_FS_MOUNT) {
         server.send(503, "application/json", "{\"error\":\"filesystem unavailable\"}");
         return;
@@ -312,8 +329,10 @@ static void handleSaveConfig() {
         server.send(500, "application/json", "{\"error\":\"save failed\"}");
         return;
     }
-    server.send(200, "application/json", "{\"status\":\"ok\"}");
+    server.send(200, "application/json", String("{\"status\":\"") + successStatus + "\"}");
 }
+
+static void handleSaveConfig() { saveConfigFromBody("ok"); }
 
 static void handleGetPlants() {
     if (!LittleFS.exists(PLANTS_PATH)) {
@@ -337,7 +356,7 @@ static void handleAddPlant() {
         server.send(400, "application/json", "{\"error\":\"name required\"}");
         return;
     }
-    if (newPlant["name"].as<String>().length() > 20) {  // matches frontend maxlength
+    if (newPlant["name"].as<String>().length() > PLANT_NAME_MAX_LEN) {
         server.send(400, "application/json", "{\"error\":\"name too long (max 20)\"}");
         return;
     }
@@ -527,10 +546,15 @@ static void handleSetTime() {
     server.send(200, "application/json", "{\"status\":\"ok\"}");
 }
 
+// Deferred so the 202 response flushes before the chip resets — no blocking
+// delay() in the cooperative server loop. webBackend_handle() fires the restart.
+static bool          rebootPending = false;
+static unsigned long rebootAt      = 0;
+
 static void handleReboot() {
     server.send(202, "application/json", "{\"status\":\"rebooting\"}");
-    delay(200);
-    ESP.restart();
+    rebootPending = true;
+    rebootAt      = millis() + 200;
 }
 
 static void handleExportConfig() {
@@ -548,27 +572,7 @@ static void handleExportConfig() {
     f.close();
 }
 
-static void handleImportConfig() {
-    if (errFlags->ERR_FS_MOUNT) {
-        server.send(503, "application/json", "{\"error\":\"filesystem unavailable\"}");
-        return;
-    }
-    JsonDocument doc;
-    if (!parseBody(doc)) return;
-
-    String errMsg;
-    if (!validateConfig(doc, errMsg)) {
-        server.send(400, "application/json", "{\"error\":\"" + errMsg + "\"}");
-        return;
-    }
-
-    applyJsonToConfig(doc, *cfg);
-    if (!saveConfig(*cfg)) {
-        server.send(500, "application/json", "{\"error\":\"save failed\"}");
-        return;
-    }
-    server.send(200, "application/json", "{\"status\":\"imported\"}");
-}
+static void handleImportConfig() { saveConfigFromBody("imported"); }
 
 static void handleAckErrors() {
     if (_ackErrorsCb) _ackErrorsCb();
@@ -659,4 +663,7 @@ void webBackend_handle() {
         client.print(redirect);
         client.stop();
     }
+
+    // Deferred reboot (from /reboot) — fire once the response has had time to flush.
+    if (rebootPending && (long)(millis() - rebootAt) >= 0) ESP.restart();
 }
