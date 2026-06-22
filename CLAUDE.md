@@ -176,6 +176,11 @@ Rules:
 **Why:** ESP32 Arduino `WebServer::streamFile` already auto-adds `Content-Encoding: gzip` when the streamed file name ends in `.gz` (and the content type isn't gzip/none). Adding it manually sent the header twice → browser double-inflated → garbage.
 **Fix / avoid:** Serve the `.gz` file with `streamFile(f, getContentType(basePath))` and do NOT add the header yourself. Pass the *base* path (no `.gz`) to `getContentType` so the type stays `text/html`/`application/javascript`, which is what triggers the core's auto-header.
 
+### gzip build-hook shipped a stale filesystem after data/ edits
+**What failed:** Editing `data/` then running `uploadfs` uploaded the OLD UI — changes never reached the device.
+**Why:** `gzip_assets.py` staged assets only via `env.AddPreAction("$BUILD_DIR/littlefs.bin", …)`. SCons tracks the image's sources by the staging dir (`build/<env>/data_gz`), not `data/`. Once staging was populated it judged the image up-to-date, skipped the rebuild, and never ran the action.
+**Fix / avoid:** Stage eagerly at config time (call the staging fn at module top level, every invocation) so it reflects current `data/` before SCons computes dependencies, and remove any cached `littlefs.bin`. Do NOT rely on a PreAction alone for a generated source dir.
+
 ### gz assets require BOTH uploadfs AND a firmware flash
 **What failed:** Uploading the gzipped filesystem without re-flashing firmware (or vice versa) breaks the UI — old firmware can't find the now-`.gz`-only assets; gz-aware firmware needs the gz FS.
 **Fix / avoid:** After changing asset/serving logic, deploy both: `pio run -t upload` (firmware) and `pio run -t uploadfs` (filesystem).
