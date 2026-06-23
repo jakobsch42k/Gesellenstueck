@@ -145,7 +145,8 @@
       <!-- ░░ SENSORS ░░ -->
       <section class="view" id="diag">
         <div class="note" id="diag-stale" hidden>Sensor data stale</div>
-        <div class="sec-label">Atmosphere · DHT sensor</div>
+        <div class="fault-banner" id="diag-faults" hidden></div>
+        <div class="sec-label">Atmosphere · DHT sensor<span class="sec-flag" id="flag-bme" hidden>Fault</span></div>
         <div class="grid-2">
           <div class="metric" data-domain="temp">
             <div class="m-top"><span class="m-name">Temperature</span><span class="m-ico" style="color:var(--terra)"><svg class="ic" data-ic="temp"></svg></span></div>
@@ -191,7 +192,7 @@
           <div class="note mt8">12-bit ADC, 0–4095. Higher raw = drier soil (inverse). Calibrated per probe in firmware.</div>
         </div>
 
-        <div class="sec-label">Light controller</div>
+        <div class="sec-label">Light controller<span class="sec-flag" id="flag-bh" hidden>Offline</span></div>
         <div class="card">
           <div class="kv"><span class="k">Measured</span><span class="v" id="lc-measured">— lx</span></div>
           <div class="m-spark" id="spark-d-lux" style="margin-top:10px"></div>
@@ -310,6 +311,14 @@
               <a class="btn sm" href="/log.txt" download="hochbeet-log.txt">Download</a>
               <button class="btn sm" id="logs-refresh">Refresh</button>
             </div>
+          </div>
+          <div class="row between mb10">
+            <div class="logfilter" id="logs-filter">
+              <button class="lf active" data-lvl="ALL">All</button>
+              <button class="lf" data-lvl="WARN">Warnings</button>
+              <button class="lf" data-lvl="ERROR">Errors</button>
+            </div>
+            <span class="log-count" id="logs-count"></span>
           </div>
           <div id="log-list"><div class="note">Loading…</div></div>
         </div>

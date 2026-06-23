@@ -155,6 +155,7 @@ html.js-motion .view.active { animation:none; }
 .btn.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
 .btn.sky { background:var(--sky); border-color:var(--sky); color:#fff; }
 .btn.on { background:var(--leaf); border-color:var(--leaf); color:#fff; }
+#valve-grid .btn.on { background:var(--sky); border-color:var(--sky); } /* open valve = blue, matches the drop */
 .btn.sm { padding:8px 12px; min-height:38px; font-size:11.5px; }
 .btn.arm { background:var(--rose); border-color:var(--rose); color:#fff; }
 .btn.full { width:100%; }
@@ -277,6 +278,19 @@ select.sel { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w
 .log-lvl.err  { color:var(--rose); border-color:var(--rose-t); }
 .log-tag { font-size:10px; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; color:var(--ink-2); }
 .log-msg { font-size:13px; color:var(--ink); line-height:1.4; word-break:break-word; }
+.logfilter { display:flex; gap:5px; }
+.lf { border:1px solid var(--line); background:var(--card); cursor:pointer; font-family:var(--sans); font-size:11px; font-weight:700; color:var(--ink-2); padding:5px 11px; border-radius:100px; transition:background .15s, color .15s, border-color .15s; }
+.lf.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+.lf:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+.log-count { font-size:10.5px; font-weight:700; letter-spacing:.03em; color:var(--ink-3); font-variant-numeric:tabular-nums; white-space:nowrap; }
+
+/* ── Sensor fault surfacing (Sensors tab) ──────────────────────── */
+.fault-banner { display:flex; flex-direction:column; gap:7px; margin:0 0 4px; padding:11px 13px; border-radius:10px; background:var(--rose-t); border:1px solid var(--rose); }
+.fault-banner[hidden] { display:none; }
+.fault-row { display:flex; align-items:center; gap:9px; font-size:12.5px; font-weight:600; color:var(--ink); line-height:1.35; }
+.fault-dot { flex:none; width:8px; height:8px; border-radius:50%; background:var(--rose); box-shadow:0 0 0 3px var(--rose-t); }
+.sec-flag { margin-left:8px; padding:1px 7px; border-radius:100px; background:var(--rose-t); border:1px solid var(--rose); color:var(--rose); font-size:9px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; vertical-align:middle; }
+.kv-fault .k { color:var(--rose); font-weight:700; }
 
 /* ── Irrigation map ─────────────────────────────────────────── */
 #irrig-map { margin-top: 6px; }

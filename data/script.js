@@ -736,7 +736,15 @@ function updateHero() {
   const tw = $('#garden-hero [data-w="tC"]');
   if (tw) tw.textContent = config.tempTarget != null ? `target ${fmt(config.tempTarget, 1)}°` : '';
   const lw = $('#garden-hero [data-w="lx"]');
-  if (lw) lw.textContent = config.luxTarget != null ? `target ${fmt(config.luxTarget, 0)}` : '';
+  if (lw) {
+    // current light setpoint = configured max scaled by this hour's profile %
+    // (mirrors lightManagement.cpp: targetLux = luxTarget * profilePercent/100)
+    const hour = Math.floor(tod / 3600) % 24;
+    const prof = (config.lightProfile && config.lightProfile[hour] != null) ? config.lightProfile[hour] : 100;
+    lw.textContent = config.luxTarget != null
+      ? `target ${fmt(Math.round(config.luxTarget * prof / 100), 0)}`
+      : '';
+  }
 }
 
 function renderDiag() {
@@ -750,6 +758,7 @@ function renderDiag() {
     staleEl.hidden = !stale;
     if (stale) staleEl.textContent = 'Sensor data ' + Math.round(age / 1000) + ' s old';
   }
+  renderSensorFaults(d, g);
   $('#d-temp').textContent = fmt(g.temperature != null ? g.temperature : d.tempC, 1);
   $('#d-hum').textContent = fmt(g.humidity != null ? g.humidity : d.humPerc, 0);
   spark($('#spark-d-temp'), hist.temp, 'var(--terra)', 30);
@@ -773,9 +782,11 @@ function renderDiag() {
 
   // raw soil
   const raw = g.soilRaw || [];
+  const soilBad = g.ERR_SOIL || [];
   const head = $('#soil-raw').querySelector('.note');
   $('#soil-raw').innerHTML = (raw.length ? raw : (d.soilPerc || []).map(() => '—')).map((rv, i) =>
-    `<div class="kv"><span class="k">Bed ${i + 1}${bedPlants[i] ? ' · ' + esc(bedPlants[i]) : ''}</span>` +
+    `<div class="kv${soilBad[i] ? ' kv-fault' : ''}"><span class="k">Bed ${i + 1}${bedPlants[i] ? ' · ' + esc(bedPlants[i]) : ''}` +
+    (soilBad[i] ? '<span class="sec-flag">Fault</span>' : '') + `</span>` +
     `<span class="v">${esc(rv)} <span class="muted">raw → ${(d.soilPerc || [])[i] != null ? esc(d.soilPerc[i]) + '%' : '—'}</span></span></div>`).join('') +
     (head ? head.outerHTML : '');
 
@@ -786,6 +797,25 @@ function renderDiag() {
   $('#lc-pwm').textContent = `${pwm} / 255 (${Math.round((pwm / 255) * 100)}%)`;
   $('#lc-bar').style.width = (pwm / 255 * 100) + '%';
 }
+
+/* Per-sensor fault surfacing on the Sensors tab: banner + inline section
+   badges. Sources: data.json bools (BME/BH) + /diagnostics ERR_SOIL[] array. */
+function renderSensorFaults(d, g) {
+  const bme = d.ERR_SENSOR_BME === true, bh = d.ERR_SENSOR_BH === true;
+  const soilBad = g.ERR_SOIL || [];
+  const faults = [];
+  if (bme) faults.push('Climate sensor (BME280) not responding — holding last-good reading');
+  if (bh) faults.push('Light sensor (BH1750) offline — light runs feed-forward only');
+  soilBad.forEach((bad, i) => { if (bad) faults.push('Soil sensor ' + (i + 1) + ' reading implausible (outside 50–4000)'); });
+  toggleHidden('#flag-bme', !bme);
+  toggleHidden('#flag-bh', !bh);
+  const banner = $('#diag-faults');
+  if (banner) {
+    banner.hidden = !faults.length;
+    banner.innerHTML = faults.map((t) => `<div class="fault-row"><span class="fault-dot"></span>${esc(t)}</div>`).join('');
+  }
+}
+function toggleHidden(sel, hide) { const el = $(sel); if (el) el.hidden = hide; }
 
 function renderSystem(sys) {
   if (sys) {
@@ -916,27 +946,45 @@ function logClock(t) {
   return p(Math.floor(s / 3600)) + ':' + p(Math.floor(s / 60) % 60) + ':' + p(s % 60);
 }
 const LOG_CLS = { ERROR: 'err', WARN: 'warn' }; // INFO/DEBUG fall through to 'on'
+const LOG_VIEW_MAX = 50;
+let logCache = [];      // newest-first snapshot of the last fetch
+let logFilter = 'ALL';  // ALL | WARN | ERROR
 async function fetchLogs() {
   const host = $('#log-list');
   if (!host) return;
   try {
     const arr = await fetchT('/logs.json').then((r) => r.json());
-    if (!Array.isArray(arr) || !arr.length) {
-      host.innerHTML = '<div class="note">No events logged yet.</div>';
-      return;
-    }
-    host.innerHTML = arr.slice(-20).reverse().map((e) => {
-      const lvl = String(e.lvl || 'INFO').toUpperCase();
-      const cls = LOG_CLS[lvl] || 'on';
-      return `<div class="log-row ${cls}"><div class="log-meta">` +
-        `<span class="log-time">${logClock(e.t || 0)}</span>` +
-        `<span class="log-lvl ${cls}">${esc(lvl)}</span>` +
-        `<span class="log-tag">${esc(e.tag || '')}</span></div>` +
-        `<div class="log-msg">${esc(e.msg || '')}</div></div>`;
-    }).join('');
+    logCache = Array.isArray(arr) ? arr.slice().reverse() : []; // newest first
+    renderLogs();
   } catch (err) {
     host.innerHTML = '<div class="note">Could not load logs — check connection.</div>';
+    const c = $('#logs-count'); if (c) c.textContent = '';
   }
+}
+/* Render from logCache applying the active level filter. WARN keeps warnings
+   and errors (severity floor); ERROR is errors only. */
+function renderLogs() {
+  const host = $('#log-list');
+  if (!host) return;
+  const pass = (lvl) => logFilter === 'ALL'
+    || (logFilter === 'ERROR' && lvl === 'ERROR')
+    || (logFilter === 'WARN' && (lvl === 'WARN' || lvl === 'ERROR'));
+  const rows = logCache.filter((e) => pass(String(e.lvl || 'INFO').toUpperCase())).slice(0, LOG_VIEW_MAX);
+  const count = $('#logs-count');
+  if (count) count.textContent = logCache.length
+    ? `${rows.length} shown · ${logCache.length} total`
+    : '';
+  if (!logCache.length) { host.innerHTML = '<div class="note">No events logged yet.</div>'; return; }
+  if (!rows.length) { host.innerHTML = '<div class="note">No matching events.</div>'; return; }
+  host.innerHTML = rows.map((e) => {
+    const lvl = String(e.lvl || 'INFO').toUpperCase();
+    const cls = LOG_CLS[lvl] || 'on';
+    return `<div class="log-row ${cls}"><div class="log-meta">` +
+      `<span class="log-time">${logClock(e.t || 0)}</span>` +
+      `<span class="log-lvl ${cls}">${esc(lvl)}</span>` +
+      `<span class="log-tag">${esc(e.tag || '')}</span></div>` +
+      `<div class="log-msg">${esc(e.msg || '')}</div></div>`;
+  }).join('');
 }
 
 /* ============================================================
@@ -1190,7 +1238,7 @@ async function manual(command, value) {
 function buildValves() {
   $('#valve-grid').innerHTML = [1, 2, 3, 4, 5].map((v) =>
     `<button class="btn sm" data-valve="${v}" style="flex-direction:column;gap:2px;padding:9px 0;min-height:52px">
-      <svg class="ic" data-ic="drop" style="width:15px;height:15px"></svg><span style="font-size:10px">V${v}</span></button>`).join('');
+      <svg class="ic" data-ic="drop" style="width:15px;height:15px;color:var(--sky)"></svg><span style="font-size:10px">V${v}</span></button>`).join('');
   initIcons($('#valve-grid'));
   // Confirmed-state only: mutate UI after the POST succeeds (fetchT bounds
   // the wait); button disabled during the round-trip to prevent double-fire.
@@ -1292,6 +1340,12 @@ function init() {
 
   // logs
   $('#logs-refresh').addEventListener('click', fetchLogs);
+  $('#logs-filter').addEventListener('click', (ev) => {
+    const b = ev.target.closest('.lf'); if (!b) return;
+    logFilter = b.dataset.lvl;
+    $$('#logs-filter .lf').forEach((el) => el.classList.toggle('active', el === b));
+    renderLogs(); // re-filter the cached snapshot, no refetch
+  });
 
   // time
   $('#set-time-btn').addEventListener('click', () => {
