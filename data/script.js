@@ -602,9 +602,10 @@ const HERO_ICON = {
   lux: '<circle cx="8" cy="8" r="3.2"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.4 1.4M11.6 11.6 13 13M13 3l-1.4 1.4M4.4 11.6 3 13"/>',
   soil: '<path d="M8 14V7M8 7C8 5 6.5 3.5 4 3.5 4 6 5.5 7 8 7ZM8 7c0-2.2 1.6-3.8 4.2-3.8C12.2 5.6 10.6 7 8 7Z"/>',
 };
-function heroMetric(icon, label, key, unit) {
+function heroMetric(icon, label, key, unit, want) {
   return `<div class="hero-metric"><div class="mh"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">${HERO_ICON[icon]}</svg><span class="ml">${label}</span></div>` +
-    `<div class="mv"><span data-k="${key}">—</span><span class="u">${unit}</span></div></div>`;
+    `<div class="mv"><span data-k="${key}">—</span><span class="u">${unit}</span>` +
+    (want ? `<span class="mv-want" data-w="${key}"></span>` : '') + `</div></div>`;
 }
 function buildHeroSvg() {
   const host = $('#garden-hero'); if (!host) return;
@@ -629,8 +630,8 @@ function buildHeroSvg() {
     `</div>` +
     `<div class="hero-sub" id="hero-sub">—</div>` +
     `<div class="hero-metrics">` +
-    heroMetric('temp', 'Temp', 'tC', '°C') + heroMetric('hum', 'Humidity', 'hum', '%') +
-    heroMetric('lux', 'Light', 'lx', 'lx') + heroMetric('soil', 'Soil', 'soil', '%') +
+    heroMetric('temp', 'Temp', 'tC', '°C', true) + heroMetric('hum', 'Humidity', 'hum', '%') +
+    heroMetric('lux', 'Light', 'lx', 'lx', true) + heroMetric('soil', 'Soil', 'soil', '%') +
     `</div>` +
     `</div>`;
   HERO.built = true;
@@ -731,6 +732,11 @@ function updateHero() {
   $('#garden-hero [data-k="hum"]').textContent = fmt(d.humPerc, 0);
   $('#garden-hero [data-k="lx"]').textContent = fmt(d.lux, 0);
   $('#garden-hero [data-k="soil"]').textContent = sn ? fmt(Math.round(ss / sn), 0) : '—';
+  // target ("should") values next to current, pulled from saved config
+  const tw = $('#garden-hero [data-w="tC"]');
+  if (tw) tw.textContent = config.tempTarget != null ? `target ${fmt(config.tempTarget, 1)}°` : '';
+  const lw = $('#garden-hero [data-w="lx"]');
+  if (lw) lw.textContent = config.luxTarget != null ? `target ${fmt(config.luxTarget, 0)}` : '';
 }
 
 function renderDiag() {
