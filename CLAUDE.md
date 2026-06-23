@@ -184,3 +184,13 @@ Rules:
 ### gz assets require BOTH uploadfs AND a firmware flash
 **What failed:** Uploading the gzipped filesystem without re-flashing firmware (or vice versa) breaks the UI — old firmware can't find the now-`.gz`-only assets; gz-aware firmware needs the gz FS.
 **Fix / avoid:** After changing asset/serving logic, deploy both: `pio run -t upload` (firmware) and `pio run -t uploadfs` (filesystem).
+
+### BME280 disconnect not detectable via NaN; need I2C ACK probe
+**What failed:** Runtime sensor-fault detection that flagged BME280 only when `readTemperature()`/`readHumidity()` returned NaN. Unplugging the sensor never raised the flag.
+**Why:** Adafruit's `readTemperature()` returns NaN *only* when sampling is disabled (`osrs_t == SAMPLING_NONE`). A disconnected sensor still has its sampling reg cached, so it reads garbage off the dead bus (0xFF/0x00) and returns a finite (wrong) value, not NaN. Same class of issue for any I2C sensor whose lib doesn't ACK-check.
+**Fix / avoid:** Detect presence by I2C ACK each loop — `Wire.beginTransmission(addr); Wire.endTransmission() == 0`. Debounce both edges (fault after N bad, clear after M good) and `begin()` again on reconnect. See `Sensors::i2cPresent` in `sensors.cpp`.
+
+### CSS `[hidden]` overridden by a class that sets `display`
+**What failed:** A fault banner toggled with the `hidden` attribute stayed visible (empty red blob) when there were no faults.
+**Why:** `.fault-banner { display:flex }` (specificity 0,1,0) beats the UA `[hidden]{display:none}`, so the attribute stopped hiding it.
+**Fix / avoid:** Add an explicit `.<class>[hidden] { display:none }` rule whenever a class sets `display` on an element you also toggle via `hidden`.
