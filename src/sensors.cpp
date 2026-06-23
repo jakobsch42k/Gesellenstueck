@@ -14,21 +14,17 @@ static const int SOIL_PINS[NUM_BEDS] = {
 void Sensors::init(LiveData& data, ErrorFlags& err, const Config& cfg) {
     Wire.begin(PIN_SDA, PIN_SCL);
 
-    // BME280
-    if (!bme.begin(BME_I2C_ADDR_PRIMARY)) {
-        // Try alternate address
-        if (!bme.begin(BME_I2C_ADDR_ALT)) {
-            err.ERR_SENSOR_BME = true;
-            err.lastErrorMessage = "BME280 not found on I2C";
-            logger.error("sensors", "BME280 not found on I2C");
-        }
-    }
-    if (!err.ERR_SENSOR_BME) {
+    // BME280 (tries primary then alternate I2C address)
+    if (!beginBme()) {
+        err.ERR_SENSOR_BME = true;
+        err.lastErrorMessage = "BME280 not found on I2C";
+        logger.error("sensors", "BME280 not found on I2C");
+    } else {
         logger.info("sensors", "BME280 OK");
     }
 
     // BH1750
-    if (!lightMeter.begin(BH1750::CONTINUOUS_HIGH_RES_MODE)) {
+    if (!beginBh()) {
         err.ERR_SENSOR_BH = true;
         err.lastErrorMessage = "BH1750 not found on I2C";
         logger.error("sensors", "BH1750 not found on I2C");
@@ -64,6 +60,24 @@ void Sensors::init(LiveData& data, ErrorFlags& err, const Config& cfg) {
     Serial.println("[sensors] init OK");
 }
 
+// ── I2C (re)init helpers ───────────────────────────────────────────────────────
+// Shared by init() and the runtime fault-recovery path so the begin sequence
+// stays in one place.
+bool Sensors::beginBme() {
+    if (bme.begin(BME_I2C_ADDR_PRIMARY)) { bmeAddr = BME_I2C_ADDR_PRIMARY; return true; }
+    if (bme.begin(BME_I2C_ADDR_ALT))     { bmeAddr = BME_I2C_ADDR_ALT;     return true; }
+    return false;
+}
+
+bool Sensors::beginBh() {
+    return lightMeter.begin(BH1750::CONTINUOUS_HIGH_RES_MODE);
+}
+
+bool Sensors::i2cPresent(uint8_t addr) {
+    Wire.beginTransmission(addr);
+    return Wire.endTransmission() == 0;   // 0 = device ACKed
+}
+
 // ── Update ────────────────────────────────────────────────────────────────────
 
 void Sensors::update(LiveData& data, ErrorFlags& err, const Config& cfg) {
@@ -77,34 +91,75 @@ void Sensors::update(LiveData& data, ErrorFlags& err, const Config& cfg) {
     }
 
     // ── BME280 ───────────────────────────────────────────────────────────────
-    if (!err.ERR_SENSOR_BME) {
-        float t = bme.readTemperature();
-        float h = bme.readHumidity();
-        // NaN indicates a read failure — keep last good value
-        if (!isnan(t) && !isnan(h)) {
-            data.tempC         = t;
-            data.humPerc       = h;
-            data.lastBmeReadMs = millis();
+    // Detect presence by I2C ACK every loop: a disconnected BME280 returns finite
+    // garbage (not NaN), so a read-value check alone can't see a runtime unplug.
+    // Debounced both ways (hysteresis) so a single bus glitch can't flap the flag.
+    {
+        bool present = (bmeAddr && i2cPresent(bmeAddr)) ||
+                       i2cPresent(BME_I2C_ADDR_PRIMARY) || i2cPresent(BME_I2C_ADDR_ALT);
+        if (present) {
+            bmeFail = 0;
+            if (err.ERR_SENSOR_BME) {
+                // Recovering: re-init (sensor may have power-cycled) then clear
+                // only after a few clean cycles so we don't trust garbage early.
+                if (++bmeOk >= SENSOR_OK_THRESHOLD) {
+                    beginBme();
+                    err.ERR_SENSOR_BME = false;
+                    bmeOk = 0;
+                    logger.info("sensors", "BME280 recovered");
+                }
+            } else {
+                float t = bme.readTemperature();
+                float h = bme.readHumidity();
+                if (!isnan(t) && !isnan(h)) {   // keep last-good on a transient NaN
+                    data.tempC         = t;
+                    data.humPerc       = h;
+                    data.lastBmeReadMs = millis();
+                }
+            }
         } else {
-            Serial.println("[sensors] WARNING: BME280 read returned NaN");
+            bmeOk = 0;                          // hold last-good reading
+            if (!err.ERR_SENSOR_BME && ++bmeFail >= SENSOR_FAIL_THRESHOLD) {
+                err.ERR_SENSOR_BME = true;
+                err.lastErrorMessage = "BME280 stopped responding";
+                logger.error("sensors", "BME280 stopped responding");
+            }
         }
     }
 
     // ── BH1750 ───────────────────────────────────────────────────────────────
-    // Gated to sensor integration time — reading faster returns the same value
-    if (!err.ERR_SENSOR_BH && (millis() - lastLuxSample >= LUX_SAMPLE_INTERVAL_MS)) {
-        float lux = lightMeter.readLightLevel();
-        if (lux >= 0) {
-            data.lux = lux;
-            if (!luxEmaSeeded) {
-                data.luxSmoothed = lux;     // seed so we don't ramp from 0
-                luxEmaSeeded = true;
+    // Same presence-based detect/recover as BME, gated to integration time.
+    if (millis() - lastLuxSample >= LUX_SAMPLE_INTERVAL_MS) {
+        lastLuxSample = millis();
+        if (i2cPresent(BH_I2C_ADDR)) {
+            bhFail = 0;
+            if (err.ERR_SENSOR_BH) {
+                if (++bhOk >= SENSOR_OK_THRESHOLD) {
+                    beginBh();
+                    err.ERR_SENSOR_BH = false;
+                    bhOk = 0;
+                    luxEmaSeeded = false;       // re-seed EMA from the next read
+                    logger.info("sensors", "BH1750 recovered");
+                }
             } else {
-                data.luxSmoothed = LUX_EMA_ALPHA * lux + (1.0f - LUX_EMA_ALPHA) * data.luxSmoothed;
+                float lux = lightMeter.readLightLevel();
+                if (lux >= 0) {
+                    data.lux = lux;
+                    if (!luxEmaSeeded) {
+                        data.luxSmoothed = lux; // seed so we don't ramp from 0
+                        luxEmaSeeded = true;
+                    } else {
+                        data.luxSmoothed = LUX_EMA_ALPHA * lux + (1.0f - LUX_EMA_ALPHA) * data.luxSmoothed;
+                    }
+                }
             }
-            lastLuxSample = millis();
         } else {
-            Serial.println("[sensors] WARNING: BH1750 read failed");
+            bhOk = 0;
+            if (!err.ERR_SENSOR_BH && ++bhFail >= SENSOR_FAIL_THRESHOLD) {
+                err.ERR_SENSOR_BH = true;
+                err.lastErrorMessage = "BH1750 stopped responding";
+                logger.error("sensors", "BH1750 stopped responding");
+            }
         }
     }
 

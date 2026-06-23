@@ -48,6 +48,19 @@ private:
     Adafruit_BME280 bme;
     BH1750          lightMeter;
 
+    // Runtime I2C-fault tracking. Faults are only known at boot otherwise; these
+    // debounce a disconnect/reconnect at runtime (hysteresis + throttled re-init).
+    uint8_t       bmeFail = 0, bmeOk = 0;
+    uint8_t       bhFail  = 0, bhOk  = 0;
+    uint8_t       bmeAddr = 0;          // I2C address BME280 was found at (0 = none)
+
+    bool beginBme();   // (re)initialise BME280; true on success, records bmeAddr
+    bool beginBh();    // (re)initialise BH1750; true on success
+
+    // True if a device ACKs at this I2C address. Detects a runtime disconnect
+    // reliably — the BME280 library returns garbage (not NaN) on a dead bus.
+    static bool i2cPresent(uint8_t addr);
+
     // Lux EMA smoothing
     bool          luxEmaSeeded  = false;
     unsigned long lastLuxSample = 0;

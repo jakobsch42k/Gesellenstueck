@@ -15,6 +15,7 @@ constexpr uint8_t NUM_BEDS = 5;   // Raised beds: soil sensors, valves, moisture
 #define LCD_I2C_ADDR               0x27
 #define BME_I2C_ADDR_PRIMARY       0x76
 #define BME_I2C_ADDR_ALT           0x77
+#define BH_I2C_ADDR                0x23   // BH1750 default (ADDR low); 0x5C if ADDR high
 
 // ── Config Defaults ──────────────────────────────────────────────────────────
 #define DEFAULT_MOISTURE            40    // Target soil moisture per bed (%)
@@ -54,6 +55,12 @@ constexpr uint8_t NUM_BEDS = 5;   // Raised beds: soil sensors, valves, moisture
 // noise (pump/valves/roof motor) that otherwise flickered the warning LED and
 // could glitch-latch ERR_WATER_CRITICAL. Well below real fill/drain timescales.
 #define DIGITAL_DEBOUNCE_MS           50UL
+
+// ── I2C sensor fault detection (BME280 / BH1750) ─────────────────────────────
+// Runtime disconnect detection is debounced so a single I2C glitch doesn't
+// raise a fault, and recovery requires a few clean reads (hysteresis).
+#define SENSOR_FAIL_THRESHOLD          5    // consecutive bad reads → fault
+#define SENSOR_OK_THRESHOLD            3    // consecutive good reads → clear fault
 
 // ── Light Management ─────────────────────────────────────────────────────────
 #define LUX_SAMPLE_INTERVAL_MS      120   // BH1750 high-res integration time
