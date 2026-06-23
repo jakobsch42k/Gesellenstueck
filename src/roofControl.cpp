@@ -121,6 +121,13 @@ void RoofController::setState(RoofState s) {
     enterState(s);
 }
 
+void RoofController::syncFromHardware(const LiveData& data) {
+    enterState(data.roofClosed ? ROOF_CLOSED : ROOF_OPEN);
+    // Pre-age the dwell timer so auto regulation can respond immediately
+    // after switching out of maintenance mode.
+    stateEnteredAt -= ROOF_MIN_DWELL_MS;
+}
+
 void RoofController::ackError(ErrorFlags& err) {
     if (state == ROOF_ERROR) {
         err.ERR_ROOF_TIMEOUT = false;

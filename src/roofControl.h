@@ -10,7 +10,8 @@ public:
     void      init(const LiveData& data, ErrorFlags& err, Actuators& actuators);
     void      update(const LiveData& data, const Config& cfg, ErrorFlags& err);
     RoofState getState() const { return state; }
-    void      setState(RoofState s);   // used by manual commands in maintenance mode
+    void      setState(RoofState s);         // used by manual commands in maintenance mode
+    void      syncFromHardware(const LiveData& data); // re-sync + pre-age dwell on mode switch
     void      ackError(ErrorFlags& err);
 
 private:

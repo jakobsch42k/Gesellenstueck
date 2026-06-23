@@ -159,9 +159,14 @@ bool SystemController::handleManualCommand(String cmd, int val) {
     else if (cmd == "valve_close" && val >= 1 && val <= NUM_BEDS) actuators.valve_close(val - 1);
     else if (cmd == "valve_closeAll") actuators.valve_closeAll();
     else if (cmd == "roof_open") {
-        actuators.roof_open(config.roofOpenPwm);
-        roofControl.setState(ROOF_OPENING);
-        maintenanceOpenUntil = millis() + MAINTENANCE_OPEN_PULSE_MS;
+        RoofState cur = roofControl.getState();
+        if (cur == ROOF_OPEN || cur == ROOF_OPENING) {
+            logger.info("systemController", "roof_open ignored — already open/opening");
+        } else {
+            actuators.roof_open(config.roofOpenPwm);
+            roofControl.setState(ROOF_OPENING);
+            maintenanceOpenUntil = millis() + MAINTENANCE_OPEN_PULSE_MS;
+        }
     }
     else if (cmd == "roof_close") {
         if (!liveData.roofClosed) {
@@ -187,6 +192,7 @@ bool SystemController::handleManualCommand(String cmd, int val) {
     }
     else if (cmd == "maintenance_off") {
         errorFlags.MAINTENANCE_MODE = false;
+        roofControl.syncFromHardware(liveData);
         lightControl.resetPWM();
         logger.info("systemController", "maintenance mode OFF");
     }
