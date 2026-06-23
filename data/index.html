@@ -66,8 +66,6 @@
       <!-- ░░ GARDEN ░░ -->
       <section class="view active" id="dash">
         <div class="hero" id="garden-hero" hidden></div>
-        <div class="chips" id="dash-chips"></div>
-        <div class="grid-2" id="dash-metrics"></div>
 
         <div class="card">
           <div class="row between mb4">
@@ -163,10 +161,7 @@
 
         <div class="sec-label">Roof actuator</div>
         <div class="card">
-          <div class="roof-viz" id="roof-viz" data-state="IDLE">
-            <div class="roof-sun"></div><div class="roof-panel"></div><div class="roof-bed"></div>
-            <div class="roof-state-label" id="roof-label">—</div>
-          </div>
+          <div class="kv"><span class="k">State</span><span class="v" id="roof-label">—</span></div>
           <div class="kv"><span class="k">Reed contact (closed)</span><span class="v" id="roof-contact">—</span></div>
           <div class="kv"><span class="k">Opens / closes at</span><span class="v" id="roof-thresholds">—</span></div>
         </div>
@@ -189,7 +184,6 @@
             </div>
           </div>
           <div class="note mt12">No continuous level sensor — only two float switches. Pumping is blocked when the critical float trips.</div>
-          <div class="kv mt4"><span class="k">Pump</span><span class="v" id="diag-pump">—</span></div>
         </div>
 
         <div class="sec-label">Raw soil sensors (ADC)</div>
@@ -200,7 +194,8 @@
         <div class="sec-label">Light controller</div>
         <div class="card">
           <div class="kv"><span class="k">Measured</span><span class="v" id="lc-measured">— lx</span></div>
-          <div class="kv"><span class="k">LED PWM duty</span><span class="v" id="lc-pwm">— / 255</span></div>
+          <div class="m-spark" id="spark-d-lux" style="margin-top:10px"></div>
+          <div class="kv mt12"><span class="k">LED PWM duty</span><span class="v" id="lc-pwm">— / 255</span></div>
           <div class="moist-track" style="height:9px; margin-top:10px"><div class="moist-fill" id="lc-bar" style="width:0%; background:var(--sun)"></div></div>
         </div>
         <div class="spacer"></div>

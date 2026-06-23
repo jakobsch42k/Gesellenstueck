@@ -262,48 +262,6 @@ const swatchColor = (name) => {
   return `hsl(${h} 38% 42%)`;
 };
 
-/* ---- metric tiles : build once, then update value in place ---- */
-let metricsBuilt = false;
-const chipState = {}; // label -> last state class, for chip-flip pop (#4)
-function buildMetrics(tiles) {
-  if (metricsBuilt) return;
-  $('#dash-metrics').innerHTML = tiles.map(([dom, ic, name]) =>
-    `<div class="metric" data-domain="${dom}"><div class="m-top"><span class="m-name">${name}</span>` +
-    `<span class="m-ico"><svg class="ic" data-ic="${ic}"></svg></span></div>` +
-    `<div class="m-val" id="mv-${dom}"></div>` +
-    `<div class="m-spark" id="sp-${dom}"></div></div>`).join('');
-  initIcons($('#dash-metrics'));
-  metricsBuilt = true;
-}
-function updateMetric(dom, val, dec, unit, loading, skelSpan) {
-  const host = $('#mv-' + dom);
-  if (!host) return;
-  if (loading) { host.innerHTML = skelSpan('3.2ch', '.85em'); host._mt = null; return; }
-  let nEl = host.querySelector('.n');
-  if (!nEl) { host.innerHTML = `<span class="n"></span><span class="u">${unit}</span>`; nEl = host.querySelector('.n'); host._mt = null; }
-  const finite = typeof val === 'number' && isFinite(val);
-  // `host._mt` is one persistent state object per tile, so overwrite:true actually
-  // cancels the in-flight tween (a fresh object each poll would let tweens stack).
-  const st = host._mt;
-  if (!finite) { if (window.gsap && st) gsap.killTweensOf(st); host._mt = null; nEl.textContent = '—'; return; }
-  const step = dec === 1 ? 0.1 : 1;
-  // No motion, no prior value, or change below display resolution → set directly.
-  if (!MOTION.on || !st || !isFinite(st.v) || Math.abs(st.v - val) < step) {
-    if (window.gsap && st) gsap.killTweensOf(st);
-    host._mt = { v: val };
-    nEl.textContent = val.toFixed(dec);
-    return;
-  }
-  // Direction cue: brief color flash — rising leans green, falling terra — so a
-  // changing value reads at a glance before the needle settles.
-  const up = val > st.v;
-  gsap.from(nEl, {
-    color: up ? 'var(--leaf)' : 'var(--terra)',
-    duration: 0.9, ease: 'power2.out', overwrite: 'auto', clearProps: 'color',
-  });
-  gsap.to(st, { v: val, duration: 0.6, overwrite: true, snap: { v: step }, onUpdate() { nEl.textContent = st.v.toFixed(dec); } });
-}
-
 /* ============================================================
    RENDER — live (every poll)
    ============================================================ */
@@ -316,53 +274,11 @@ function renderDash() {
   try { updateHero(); } catch (e) {}
   const skelSpan = (w, h) => `<span class="skel" style="display:inline-block;width:${w};height:${h};border-radius:3px;vertical-align:middle"></span>`;
 
-  // chips
-  if (loading) {
-    $('#dash-chips').innerHTML = Array(4).fill(`<span class="skel" style="display:inline-block;width:72px;height:26px;border-radius:100px"></span>`).join('');
-  } else {
-    const roof = (lastDiag.roofState || 'IDLE').toUpperCase();
-    const ledOn = (lastDiag.ledPWM || 0) > 0;
-    const chips = [
-      ['Roof', roof === 'ERROR' ? 'err' : 'on', esc(roof)],
-      ['Pump', d.pumpStatus && !/idle/i.test(d.pumpStatus) ? 'on' : '', d.pumpStatus && !/idle/i.test(d.pumpStatus) ? 'Run' : 'Idle'],
-      ['Light', ledOn ? 'on' : '', ledOn ? Math.round((lastDiag.ledPWM / 255) * 100) + '%' : 'Off'],
-      ['Water', !d.waterCritical ? 'err' : !d.waterLow ? 'warn' : 'on', !d.waterCritical ? 'Crit' : !d.waterLow ? 'Low' : 'OK'],
-    ];
-    $('#dash-chips').innerHTML = chips.map(([l, c, t]) =>
-      `<span class="chip ${c}" data-chip="${l}"><span class="dot"></span>${l} · <strong style="font-weight:700">${t}</strong></span>`).join('');
-    // Pop any chip whose state class changed since last poll, so a roof/pump/
-    // water flip catches the eye instead of swapping silently.
-    if (MOTION.on) {
-      chips.forEach(([l, c]) => {
-        if (chipState[l] !== undefined && chipState[l] !== c) {
-          const el = $(`#dash-chips [data-chip="${l}"]`);
-          if (el) gsap.fromTo(el, { scale: 1 }, {
-            scale: 1.14, duration: 0.16, yoyo: true, repeat: 1,
-            ease: 'power2.inOut', transformOrigin: '50% 50%',
-            overwrite: true, clearProps: 'transform',
-          });
-        }
-        chipState[l] = c;
-      });
-    } else {
-      chips.forEach(([l, c]) => { chipState[l] = c; });
-    }
-  }
-
-  // metrics — built once; values tween in place so readouts settle like an instrument needle.
+  // Roof/pump/light/water status and the temp/humidity/light/soil readouts now
+  // live in the hero, so the dash keeps only the soil-bed detail below. Soil
+  // average is still needed for the beds-card header / sort.
   const soilAvg = Array.isArray(d.soilPerc) && d.soilPerc.length
     ? d.soilPerc.reduce((a, b) => a + b, 0) / d.soilPerc.length : null;
-  const tiles = [
-    ['temp',  'temp', 'Temp',     d.tempC,   1, '°C', hist.temp,   'var(--terra)'],
-    ['hum',   'drop', 'Humidity', d.humPerc, 0, '%',  hist.hum,    'var(--sky)'],
-    ['light', 'sun',  'Light',    d.lux,     0, 'lx', hist.lux,    'var(--sun)'],
-    ['soil',  'leaf', 'Soil avg', soilAvg,   0, '%',  avgSeries(), 'var(--leaf)'],
-  ];
-  buildMetrics(tiles);
-  const drawOn = drawCharts; drawCharts = false; // one-shot draw-on after dash (re)activation
-  tiles.forEach(([dom, , , val, dec, unit]) => updateMetric(dom, val, dec, unit, loading, skelSpan));
-  tiles.forEach(([dom, , , , , , series, color]) => spark($('#sp-' + dom), series, color, 30, { drawOn }));
-
 
   // dashboard beds
   $('#soil-avg-note').textContent = loading ? '' : 'avg ' + soilAvg + '%';
@@ -629,16 +545,6 @@ function renderIrrigationMap() {
     status.textContent = `B${selectedBed + 1} · idle`;
   }
 }
-function avgSeries() {
-  // Average only channels that have data, aligned from the tail — one dead
-  // soil sensor must not blank the whole trend (or drag the average down).
-  const live = hist.soil.filter((s) => s.length > 0);
-  if (!live.length) return [];
-  const n = Math.min(...live.map((s) => s.length));
-  const out = [];
-  for (let i = 0; i < n; i++) out.push(Math.round(live.reduce((a, s) => a + s[s.length - n + i], 0) / live.length));
-  return out;
-}
 function bedRow(i, name, m, target, low) {
   return `<div class="bed" data-flip-id="bed-${i}"><div class="swatch" style="background:${swatchColor(name)}">${(name[0] || 'B').toUpperCase()}</div>` +
     `<div class="b-main"><div class="b-top"><span><span class="b-plant">${esc(name)}</span> <span class="b-id">Bed ${i + 1}</span></span>` +
@@ -653,9 +559,7 @@ function bedRow(i, name, m, target, low) {
    plants wilt by soil-vs-target, watering droplets, narrative status line.
    Driven entirely by existing /data.json + /diagnostics; no firmware change.
    ============================================================ */
-const HERO = { built: false, W: 360, H: 210 };
-const HEROA = { drops: {} };
-let lastNarr = '';
+const HERO = { built: false };
 const G = (id) => document.getElementById(id);
 
 function lerpHex(a, b, t) {
@@ -671,10 +575,11 @@ function lerpHex(a, b, t) {
 function skyColors(tod, lux) {
   let h = tod > 0 ? tod / 3600 : (lux > 3000 ? 13 : lux > 500 ? 9 : 21);
   h = ((h % 24) + 24) % 24;
+  // softer, warmer stops [top, bottom] so the sky harmonizes with the cream cards
   const stops = [
-    [0, '#0d1326', '#172033'], [5.5, '#2a3a5a', '#c98a5e'], [7, '#8fb4d8', '#e9dcc0'],
-    [12, '#7db4dd', '#e7ddc6'], [17, '#86a9c6', '#e7d3b0'], [19, '#3a4a6a', '#d68a4f'],
-    [20.5, '#1a2238', '#3a3550'], [24, '#0d1326', '#172033'],
+    [0, '#1b2440', '#2a3354'], [5.5, '#46557f', '#caa07a'], [7, '#9fc0d8', '#dfe6e0'],
+    [12, '#a9cfe0', '#e6e9dd'], [17, '#b6cad8', '#e7d8c0'], [19, '#5a6789', '#d99a6a'],
+    [20.5, '#2b3450', '#46415f'], [24, '#1b2440', '#2a3354'],
   ];
   let a = stops[0], b = stops[stops.length - 1];
   for (let i = 0; i < stops.length - 1; i++) {
@@ -686,173 +591,146 @@ function skyColors(tod, lux) {
   return { top: lerpHex(a[1], b[1], t), bot: lerpHex(a[2], b[2], t), h, isDay, nightness };
 }
 
-const HERO_BX = [60, 120, 180, 240, 300], HERO_SOIL = 150, HERO_BOT = 170;
+/* Data-forward status hero: time-of-day atmosphere band (CSS gradient + an HTML
+   round sun/moon so it never distorts across widths) over a status headline,
+   mode pill, sub-status line, and a live metric strip. Driven by /data.json +
+   /diagnostics — no firmware change. */
+const HERO_SKY_W = 600;
+const HERO_ICON = {
+  temp: '<path d="M10 13.5V4a2 2 0 0 0-4 0v9.5a3.5 3.5 0 1 0 4 0Z"/>',
+  hum: '<path d="M8 1.5S3 7 3 10.2A5 5 0 0 0 13 10.2C13 7 8 1.5 8 1.5Z"/>',
+  lux: '<circle cx="8" cy="8" r="3.2"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.4 1.4M11.6 11.6 13 13M13 3l-1.4 1.4M4.4 11.6 3 13"/>',
+  soil: '<path d="M8 14V7M8 7C8 5 6.5 3.5 4 3.5 4 6 5.5 7 8 7ZM8 7c0-2.2 1.6-3.8 4.2-3.8C12.2 5.6 10.6 7 8 7Z"/>',
+};
+function heroMetric(icon, label, key, unit) {
+  return `<div class="hero-metric"><div class="mh"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">${HERO_ICON[icon]}</svg><span class="ml">${label}</span></div>` +
+    `<div class="mv"><span data-k="${key}">—</span><span class="u">${unit}</span></div></div>`;
+}
 function buildHeroSvg() {
   const host = $('#garden-hero'); if (!host) return;
-  const W = HERO.W, H = HERO.H;
-  const LEAF = 'M0 0 C -7 -5 -8 -16 0 -21 C 8 -16 7 -5 0 0 Z';
-  let beds = '';
-  HERO_BX.forEach((cx, i) => {
-    const bx = cx - 24;
-    beds +=
-      `<g class="hero-bed" data-bed="${i}">` +
-      `<rect x="${bx}" y="${HERO_SOIL - 2}" width="48" height="${HERO_BOT - HERO_SOIL + 2}" rx="6" fill="url(#hero-pot)"/>` +
-      `<rect x="${bx}" y="${HERO_SOIL - 2}" width="48" height="6" rx="3" fill="#5e472b" opacity="0.45"/>` +
-      `<ellipse cx="${cx}" cy="${HERO_SOIL}" rx="22" ry="5" fill="#3f3120"/>` +
-      `<g id="hero-plant-${i}">` +
-      `<path id="hero-stem-${i}" class="hero-stem" d="M${cx} ${HERO_SOIL} q 0 -18 0 -34"/>` +
-      `<path class="hero-leaf" d="${LEAF}" transform="translate(${cx} ${HERO_SOIL - 12}) rotate(-54) scale(0.95)"/>` +
-      `<path class="hero-leaf" d="${LEAF}" transform="translate(${cx} ${HERO_SOIL - 12}) rotate(54) scale(0.95)"/>` +
-      `<path class="hero-leaf" d="${LEAF}" transform="translate(${cx} ${HERO_SOIL - 24}) rotate(-30) scale(0.82)"/>` +
-      `<path class="hero-leaf" d="${LEAF}" transform="translate(${cx} ${HERO_SOIL - 24}) rotate(30) scale(0.82)"/>` +
-      `<path class="hero-leaf" d="${LEAF}" transform="translate(${cx} ${HERO_SOIL - 34}) scale(0.66)"/>` +
-      `</g>` +
-      `<circle id="hero-drop-${i}-0" class="hero-drop" cx="${cx}" cy="120" r="2.4" opacity="0"/>` +
-      `<circle id="hero-drop-${i}-1" class="hero-drop" cx="${cx - 4}" cy="120" r="2" opacity="0"/>` +
-      `<text x="${cx}" y="${HERO_BOT + 13}" class="hero-bed-l">B${i + 1}</text>` +
-      `</g>`;
-  });
-  let stars = '';
-  [[40, 26], [88, 44], [150, 20], [206, 38], [276, 28], [322, 50], [120, 60], [250, 56]]
-    .forEach(([x, y], k) => stars += `<circle class="hero-star" cx="${x}" cy="${y}" r="${k % 2 ? 0.7 : 1.1}"/>`);
-  const cloud = (x, y, s) =>
-    `<g transform="translate(${x} ${y}) scale(${s})" filter="url(#hero-soft)">` +
-    `<ellipse cx="0" cy="0" rx="26" ry="11" fill="#fff" opacity="0.9"/>` +
-    `<ellipse cx="-16" cy="4" rx="15" ry="9" fill="#fff" opacity="0.85"/>` +
-    `<ellipse cx="15" cy="4" rx="15" ry="9" fill="#fff" opacity="0.85"/></g>`;
+  const stars = [[60, 30], [140, 52], [230, 24], [330, 44], [420, 30], [500, 54], [210, 64], [470, 20]]
+    .map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.2" fill="#fdfaf0"/>`).join('');
   host.innerHTML =
-    `<svg class="hero-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Greenhouse overview">` +
-    `<defs>` +
-    `<linearGradient id="hero-sky" x1="0" y1="0" x2="0" y2="1">` +
-    `<stop id="hero-sky0" offset="0%" stop-color="#5b86c4"/>` +
-    `<stop id="hero-sky1" offset="55%" stop-color="#9cc0dd"/>` +
-    `<stop id="hero-sky2" offset="100%" stop-color="#e7ddc6"/></linearGradient>` +
-    `<radialGradient id="hero-sunglow" cx="50%" cy="50%" r="50%">` +
-    `<stop offset="0%" stop-color="#FCD66A" stop-opacity="0.65"/>` +
-    `<stop offset="100%" stop-color="#FCD66A" stop-opacity="0"/></radialGradient>` +
-    `<linearGradient id="hero-pot" x1="0" y1="0" x2="0" y2="1">` +
-    `<stop offset="0%" stop-color="#b06a43"/><stop offset="100%" stop-color="#7a4a2c"/></linearGradient>` +
-    `<linearGradient id="hero-glass" x1="0" y1="0" x2="0" y2="1">` +
-    `<stop offset="0%" stop-color="#dff0f5" stop-opacity="0.42"/>` +
-    `<stop offset="100%" stop-color="#bfe0ea" stop-opacity="0.28"/></linearGradient>` +
-    `<filter id="hero-soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.2"/></filter>` +
-    `</defs>` +
-    `<rect x="0" y="0" width="${W}" height="${H}" fill="url(#hero-sky)"/>` +
+    `<div class="hero-sky">` +
+    `<svg class="hero-sky-bg" viewBox="0 0 ${HERO_SKY_W} 104" preserveAspectRatio="none" aria-hidden="true">` +
+    `<path id="hero-arc" d="M40 88 Q ${HERO_SKY_W / 2} -40 ${HERO_SKY_W - 40} 88" fill="none" stroke="#fff" stroke-opacity=".2" stroke-width="1.5" stroke-dasharray="3 6"/>` +
     `<g id="hero-stars" opacity="0">${stars}</g>` +
-    `<circle id="hero-glow" cx="300" cy="40" r="34" fill="url(#hero-sunglow)"/>` +
-    `<circle id="hero-sun" cx="300" cy="40" r="13" fill="#FCD66A"/>` +
-    `<g id="hero-clouds" opacity="0">${cloud(78, 44, 1)}${cloud(252, 36, 0.8)}</g>` +
-    `<path class="hero-ground" d="M0 168 Q 90 160 180 168 T 360 168 L360 ${H} L0 ${H} Z"/>` +
-    beds +
-    `<rect id="hero-roof" x="0" y="82" width="${W}" height="88" rx="3" fill="url(#hero-glass)" stroke="#ffffff" stroke-opacity="0.45" stroke-width="1"/>` +
-    `<line id="hero-roof-edge" x1="${W}" y1="82" x2="${W}" y2="170" class="hero-roof-edge"/>` +
     `</svg>` +
-    `<div class="hero-narrative" id="hero-narrative"></div>`;
+    `<div class="hero-cel sun" id="hero-cel"><span class="glow"></span><span class="disc"></span></div>` +
+    `<div class="hero-sky-meta">` +
+    `<span class="hero-place"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"><path d="M8 1.6 14 5v6L8 14.4 2 11V5Z"/><path d="M2 5l6 3 6-3M8 8v6.4"/></svg>Hochbeet</span>` +
+    `<span class="hero-clock" id="hero-clock">--:--</span>` +
+    `</div>` +
+    `</div>` +
+    `<div class="hero-body">` +
+    `<div class="hero-headrow">` +
+    `<div class="hero-headline" id="hero-headline">—</div>` +
+    `<span class="hero-pill" id="hero-pill"><span class="dot"></span><span class="ptxt" id="hero-ptxt">Automatic</span></span>` +
+    `</div>` +
+    `<div class="hero-sub" id="hero-sub">—</div>` +
+    `<div class="hero-metrics">` +
+    heroMetric('temp', 'Temp', 'tC', '°C') + heroMetric('hum', 'Humidity', 'hum', '%') +
+    heroMetric('lux', 'Light', 'lx', 'lx') + heroMetric('soil', 'Soil', 'soil', '%') +
+    `</div>` +
+    `</div>`;
   HERO.built = true;
   host.hidden = false;
 }
 
-/* Watering droplets on the active bed — repeating fall, killed when the bed
-   stops pumping. Static dots when motion is off. */
-function setHeroDrops(i, on) {
-  const t = HEROA.drops[i];
-  if (on) {
-    if (t) return;
-    const ds = [G(`hero-drop-${i}-0`), G(`hero-drop-${i}-1`)];
-    if (!ds[0]) return;
-    if (!MOTION.on) { ds.forEach((d) => d.setAttribute('opacity', '0.8')); HEROA.drops[i] = 'static'; return; }
-    const cx = HERO_BX[i];
-    const tl = gsap.timeline({ repeat: -1 });
-    ds.forEach((d, k) => {
-      gsap.set(d, { attr: { cx: cx - 2 + k * 4 } });
-      tl.fromTo(d, { attr: { cy: 118 }, opacity: 0 }, { attr: { cy: 150 }, opacity: 1, duration: 0.7, ease: 'power1.in' }, k * 0.35)
-        .to(d, { opacity: 0, duration: 0.15 }, '>-0.05');
-    });
-    HEROA.drops[i] = tl;
-  } else if (t) {
-    if (t !== 'static') t.kill();
-    [0, 1].forEach((k) => { const d = G(`hero-drop-${i}-${k}`); if (d) { gsap.killTweensOf(d); d.setAttribute('opacity', '0'); } });
-    delete HEROA.drops[i];
-  }
-}
-
-/* One-sentence plain-language status, priority-ordered. */
+/* Status headline: one human sentence, priority-ordered. */
 function buildNarrative(d) {
   if (d.EMERGENCY_STOP) return 'Emergency stop — everything parked.';
   if (d.waterCritical === false) return 'Reservoir empty — pump locked.';
-  if (d.MAINTENANCE_MODE) return 'Maintenance mode — automatic control paused.';
+  // Maintenance is shown by the mode pill — keep the headline on real garden
+  // status (sensors still read while regulation is paused) to avoid repeating it.
   const rs = (lastDiag.roofState || '').toUpperCase();
   const ps = (d.pumpStatus || '').toUpperCase();
   const ab = typeof d.activeBed === 'number' ? d.activeBed : -1;
   if (ps === 'PUMPING' && ab >= 0) {
     const nm = bedPlants[ab] || ('Bed ' + (ab + 1));
-    return `${nm} watering — ${Math.max(0, Math.round((d.irrigRemainMs || 0) / 1000))}s left.`;
+    return `${nm} watering · ${Math.max(0, Math.round((d.irrigRemainMs || 0) / 1000))}s left`;
   }
-  if (rs === 'OPENING') return 'Roof opening to cool down.';
-  if (rs === 'CLOSING') return 'Roof closing.';
+  if (rs === 'OPENING') return 'Roof opening to cool down';
+  if (rs === 'CLOSING') return 'Roof closing';
   const soil = d.soilPerc || [];
   let thirsty = 0;
   for (let i = 0; i < 5; i++) if (typeof soil[i] === 'number' && soil[i] < (config.moisture[i] || 50) - 8) thirsty++;
-  const roofTxt = rs === 'OPEN' ? 'Roof open' : 'Roof closed';
-  if (d.waterLow === false) return `${roofTxt}. Low water — top up soon.`;
-  if (thirsty > 0) return `${roofTxt}. ${thirsty} bed${thirsty > 1 ? 's' : ''} getting thirsty.`;
-  return `${roofTxt}. All beds healthy.`;
+  if (d.waterLow === false) return 'Low water — top up soon';
+  if (thirsty === 1) {
+    for (let i = 0; i < 5; i++) if (typeof soil[i] === 'number' && soil[i] < (config.moisture[i] || 50) - 8)
+      return `${bedPlants[i] || ('Bed ' + (i + 1))} getting thirsty`;
+  }
+  if (thirsty > 1) return `${thirsty} beds getting thirsty`;
+  return 'All beds healthy';
 }
-function setNarrative(txt) {
-  const el = G('hero-narrative'); if (!el || txt === lastNarr) return;
-  lastNarr = txt;
-  if (MOTION.on) gsap.fromTo(el, { opacity: 0, y: 4 }, { opacity: 1, y: 0, duration: 0.4, overwrite: true, onStart() { el.textContent = txt; } });
+
+/* Mode pill state (text + severity class) from fault/maintenance flags. */
+function heroMode(d) {
+  if (d.EMERGENCY_STOP) return { txt: 'Emergency', cls: 'err' };
+  if (d.waterCritical === false) return { txt: 'Pump locked', cls: 'err' };
+  if (d.MAINTENANCE_MODE) return { txt: 'Maintenance', cls: 'warn' };
+  return { txt: 'Automatic', cls: '' };
+}
+
+/* Sub-status line: roof · pump · light · water, plain language. */
+function heroSub(d) {
+  const rs = (lastDiag.roofState || 'IDLE').toUpperCase();
+  const roofTxt = rs === 'OPEN' ? 'Roof open' : rs === 'OPENING' ? 'Roof opening'
+    : rs === 'CLOSING' ? 'Roof closing' : 'Roof closed';
+  const pumpTxt = (d.pumpStatus || '').toUpperCase() === 'PUMPING' ? 'pump running' : 'pump idle';
+  const led = lastDiag.ledPWM || 0;
+  const lightTxt = led > 0 ? `light ${Math.round((led / 255) * 100)}%` : 'light off';
+  const waterTxt = d.waterCritical === false ? 'water critical' : d.waterLow === false ? 'water low' : 'water OK';
+  return `${roofTxt} · ${pumpTxt} · ${lightTxt} · ${waterTxt}`;
+}
+
+function setHeroText(id, txt) {
+  const el = G(id); if (!el || el.textContent === txt) return;
+  if (MOTION.on) gsap.fromTo(el, { opacity: 0, y: 3 }, { opacity: 1, y: 0, duration: 0.35, overwrite: true, onStart() { el.textContent = txt; } });
   else el.textContent = txt;
 }
 
 function updateHero() {
   if (!firstPollDone) return;
   if (!HERO.built) buildHeroSvg();
-  const d = lastData, W = HERO.W;
+  const d = lastData;
   const sc = skyColors(d.timeOfDay || 0, d.lux || 0);
-  G('hero-sky0').setAttribute('stop-color', sc.top);
-  G('hero-sky1').setAttribute('stop-color', lerpHex(sc.top, sc.bot, 0.5));
-  G('hero-sky2').setAttribute('stop-color', sc.bot);
+
+  // atmosphere band: CSS gradient + arc/stars by time of day
+  $('#garden-hero .hero-sky').style.background = `linear-gradient(180deg, ${sc.top}, ${sc.bot})`;
   G('hero-stars').setAttribute('opacity', sc.nightness.toFixed(2));
-  G('hero-clouds').setAttribute('opacity', ((1 - sc.nightness) * 0.85).toFixed(2));
+  G('hero-arc').setAttribute('stroke-opacity', (0.08 + (1 - sc.nightness) * 0.16).toFixed(2));
 
-  // sun by day, moon by night, riding an arc above the frame
-  let cx, cy, col;
-  if (sc.isDay) { const f = clamp((sc.h - 6) / 14, 0, 1); cx = 30 + f * (W - 60); cy = 100 - Math.sin(f * Math.PI) * 78; col = '#FCD66A'; }
-  else { const nh = sc.h < 6 ? sc.h + 24 : sc.h, f = clamp((nh - 20) / 10, 0, 1); cx = 30 + f * (W - 60); cy = 100 - Math.sin(f * Math.PI) * 78; col = '#dfe4ee'; }
-  ['hero-sun', 'hero-glow'].forEach((id) => { const e = G(id); e.setAttribute('cx', cx.toFixed(1)); e.setAttribute('cy', cy.toFixed(1)); });
-  G('hero-sun').setAttribute('fill', col);
-  G('hero-glow').setAttribute('opacity', sc.isDay ? '1' : '0.4');
+  // sun by day / moon by night, riding the arc (HTML element → always round)
+  const f = sc.isDay ? clamp((sc.h - 6) / 14, 0, 1)
+    : clamp(((sc.h < 6 ? sc.h + 24 : sc.h) - 20) / 10, 0, 1);
+  const cx = 40 + f * (HERO_SKY_W - 80), cy = 88 - Math.sin(f * Math.PI) * 66;
+  const cel = G('hero-cel');
+  cel.className = 'hero-cel ' + (sc.isDay ? 'sun' : 'moon');
+  cel.style.left = (cx / HERO_SKY_W * 100).toFixed(2) + '%';
+  cel.style.top = cy.toFixed(1) + 'px';
 
-  // glass lid slides open/closed with the roof FSM state
-  const rs = (lastDiag.roofState || 'IDLE').toUpperCase();
-  const rw = (rs === 'OPEN' || rs === 'OPENING') ? W * 0.1 : W;
-  const roof = G('hero-roof'), edge = G('hero-roof-edge');
-  if (MOTION.on) {
-    gsap.to(roof, { attr: { width: rw }, duration: 0.9, ease: 'power2.inOut', overwrite: true,
-      onUpdate() { const w = +roof.getAttribute('width'); edge.setAttribute('x1', w); edge.setAttribute('x2', w); } });
-  } else { roof.setAttribute('width', rw); edge.setAttribute('x1', rw); edge.setAttribute('x2', rw); }
+  // clock from controller time-of-day (— when the clock is unset)
+  const tod = d.timeOfDay || 0;
+  G('hero-clock').textContent = tod > 0
+    ? `${String(Math.floor(tod / 3600) % 24).padStart(2, '0')}:${String(Math.floor(tod / 60) % 60).padStart(2, '0')}`
+    : '--:--';
 
-  // bed plants: droop + colour by soil-vs-target; droplets on the watered bed
-  const soil = d.soilPerc || [], ps = (d.pumpStatus || '').toUpperCase();
-  const ab = typeof d.activeBed === 'number' ? d.activeBed : -1;
-  for (let i = 0; i < 5; i++) {
-    const m = soil[i], tgt = config.moisture[i] || 50, ox = HERO_BX[i];
-    let ang = 0, leaf = '#4e8a5a', stem = '#3f7a4c';
-    if (typeof m === 'number') {
-      const dl = m - tgt;
-      if (dl <= -20) { ang = 26; leaf = '#b0763a'; stem = '#8a6a3f'; }   // wilting — drooped, tan
-      else if (dl <= -8) { ang = 14; leaf = '#b3ad4a'; stem = '#7d7a3e'; } // thirsty — leaning, yellow-olive
-    }
-    const g = G('hero-plant-' + i);
-    if (MOTION.on) gsap.to(g, { rotation: ang, duration: 1.0, ease: 'power2.out', overwrite: true, svgOrigin: `${ox} ${HERO_SOIL}` });
-    else g.setAttribute('transform', `rotate(${ang} ${ox} ${HERO_SOIL})`);
-    g.querySelectorAll('.hero-leaf').forEach((l) => l.setAttribute('fill', leaf));
-    G('hero-stem-' + i).setAttribute('stroke', stem);
-    setHeroDrops(i, ps === 'PUMPING' && ab === i);
-  }
+  // headline + mode pill + sub-status
+  setHeroText('hero-headline', buildNarrative(d));
+  const mode = heroMode(d);
+  G('hero-pill').className = 'hero-pill' + (mode.cls ? ' ' + mode.cls : '');
+  setHeroText('hero-ptxt', mode.txt);
+  setHeroText('hero-sub', heroSub(d));
 
-  setNarrative(buildNarrative(d));
+  // live metric strip
+  const soil = d.soilPerc || [];
+  let ss = 0, sn = 0;
+  for (let i = 0; i < 5; i++) if (typeof soil[i] === 'number') { ss += soil[i]; sn++; }
+  $('#garden-hero [data-k="tC"]').textContent = fmt(d.tempC, 1);
+  $('#garden-hero [data-k="hum"]').textContent = fmt(d.humPerc, 0);
+  $('#garden-hero [data-k="lx"]').textContent = fmt(d.lux, 0);
+  $('#garden-hero [data-k="soil"]').textContent = sn ? fmt(Math.round(ss / sn), 0) : '—';
 }
 
 function renderDiag() {
@@ -872,10 +750,11 @@ function renderDiag() {
   spark($('#spark-d-hum'), hist.hum, 'var(--sky)', 30);
 
   const roof = (g.roofState || 'IDLE').toUpperCase();
-  $('#roof-viz').dataset.state = roof;
   $('#roof-label').textContent = roof;
   $('#roof-state-inline').textContent = roof;
-  $('#roof-contact').textContent = boolTxt(g.roofContact, 'CLOSED', 'OPEN');
+  // /diagnostics sends roofContact as the string "Closed"/"Open" (not a bool) —
+  // show it directly so it tracks the reed instead of sticking on OPEN.
+  $('#roof-contact').textContent = g.roofContact ? String(g.roofContact).toUpperCase() : '—';
   $('#roof-thresholds').textContent = `${(config.tempTarget + config.tempHyst).toFixed(1)} / ${(config.tempTarget - config.tempHyst).toFixed(1)} °C`;
 
   // water
@@ -885,7 +764,6 @@ function renderDiag() {
   $('#tank-fill').style.height = (!d.waterCritical ? 7 : !d.waterLow ? 21 : 78) + '%';
   setChip($('#chip-low'), !d.waterLow ? 'warn' : 'on', 'Low float ' + (!d.waterLow ? 'tripped' : 'clear'));
   setChip($('#chip-crit'), !d.waterCritical ? 'err' : 'on', 'Critical ' + (!d.waterCritical ? 'tripped' : 'clear'));
-  $('#diag-pump').textContent = g.pumpStatus || d.pumpStatus || '—';
 
   // raw soil
   const raw = g.soilRaw || [];
@@ -897,6 +775,7 @@ function renderDiag() {
 
   // light controller
   $('#lc-measured').textContent = fmt(g.light != null ? g.light : d.lux, 0) + ' lx';
+  spark($('#spark-d-lux'), hist.lux, 'var(--sun)', 30);
   const pwm = g.ledPWM || 0;
   $('#lc-pwm').textContent = `${pwm} / 255 (${Math.round((pwm / 255) * 100)}%)`;
   $('#lc-bar').style.width = (pwm / 255 * 100) + '%';

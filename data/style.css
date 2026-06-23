@@ -141,22 +141,6 @@ html.js-motion .view.active { animation:none; }
 .float-line::after { content:attr(data-l); position:absolute; right:3px; top:-10px; font-size:7px; font-weight:800; letter-spacing:0.04em; }
 .float-line.low { color:var(--sun); } .float-line.crit { color:var(--rose); }
 
-/* ---- roof viz --------------------------------------------- */
-.roof-viz { position:relative; height:96px; border-radius:var(--r-sm); overflow:hidden; border:1px solid var(--line); background:linear-gradient(180deg, #cfe0e8, #e7ddc6); }
-[data-mode="dusk"] .roof-viz { background:linear-gradient(180deg, #243244, #2e2820); }
-.roof-sun { position:absolute; top:18px; right:26px; width:26px; height:26px; border-radius:50%; background:var(--sun); box-shadow:0 0 26px 6px var(--sun-t); }
-.roof-bed { position:absolute; bottom:0; left:0; right:0; height:26px; background:linear-gradient(180deg, #6b5436, #4a3a25); }
-.roof-panel { position:absolute; top:0; bottom:26px; left:0; width:100%; background:repeating-linear-gradient(135deg, #8fb39a 0 7px, #7da588 7px 14px); border-right:3px solid var(--leaf); transition:width .6s cubic-bezier(.4,.1,.3,1); opacity:.92; }
-.roof-viz[data-state="OPEN"] .roof-panel { width:8%; }
-.roof-viz[data-state="CLOSED"] .roof-panel, .roof-viz[data-state="IDLE"] .roof-panel { width:100%; }
-.roof-viz[data-state="IDLE"] .roof-panel { opacity:.5; }
-.roof-viz[data-state="OPENING"] .roof-panel { animation:rOpen 1.6s ease-in-out infinite alternate; }
-.roof-viz[data-state="CLOSING"] .roof-panel { animation:rClose 1.6s ease-in-out infinite alternate; }
-.roof-viz[data-state="ERROR"] .roof-panel { background:repeating-linear-gradient(135deg, var(--rose) 0 7px, #7e2b24 7px 14px); border-right-color:var(--rose); animation:pulse 1s infinite; }
-@keyframes rOpen { from{width:100%;} to{width:8%;} }
-@keyframes rClose { from{width:8%;} to{width:100%;} }
-.roof-state-label { position:absolute; bottom:6px; left:10px; font-size:11px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:#fff; text-shadow:0 1px 3px #0006; }
-
 /* ---- key/value ------------------------------------------- */
 .kv { display:flex; align-items:baseline; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--line); gap:12px; }
 .kv:last-child { border-bottom:none; }
@@ -272,10 +256,8 @@ select.sel { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w
   .skel { animation:none; opacity:.5; }
   /* kill looping/entrance motion; keep end-states visible */
   .view.active, .subview.active { animation:none; }
-  .led.err, .chip.err .dot, .roof-viz[data-state="ERROR"] .roof-panel { animation:none; }
-  .roof-viz[data-state="OPENING"] .roof-panel,
-  .roof-viz[data-state="CLOSING"] .roof-panel { animation:none; }
-  .roof-panel, .moist-fill, .moist-target, .tank-fill, .btn, .tab { transition:none; }
+  .led.err, .chip.err .dot { animation:none; }
+  .moist-fill, .moist-target, .tank-fill, .btn, .tab { transition:none; }
 }
 
 /* ── Offline badge ─────────────────────────────────────────── */
@@ -330,13 +312,37 @@ select.sel { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w
    plain-language status line. Scene depicts the real outdoor state, so its
    colours are driven by sensor data, not the UI day/dusk theme. */
 .hero { position: relative; border-radius: var(--r); overflow: hidden; border: 1px solid var(--line); background: var(--card); box-shadow: var(--shadow); }
-.hero-svg { display: block; width: 100%; height: auto; }
-.hero-ground { fill: #6b5436; }
-.hero-stem { fill: none; stroke: var(--leaf); stroke-width: 2.8; stroke-linecap: round; }
-.hero-leaf { fill: #4e8a5a; transition: fill .6s ease; }
-.hero-star { fill: #fff; }
-.hero-drop { fill: #7ec8e3; }
-.hero-roof-edge { stroke: var(--leaf); stroke-width: 3; }
-.hero-bed-l { fill: #fff; font: 700 9px/1 var(--sans); text-anchor: middle; letter-spacing: .06em; opacity: .85; }
-.hero-narrative { font-family: var(--serif); font-size: 13.5px; font-weight: 500; color: var(--ink); padding: 8px 13px; border-top: 1px solid var(--line); line-height: 1.35; }
-@media (prefers-reduced-motion: reduce) { .hero-leaf { transition: none; } }
+/* Time-of-day atmosphere band: CSS gradient (set by JS) + an HTML round sun/moon
+   so the disc never distorts across widths; arc + stars live in a stretch SVG. */
+.hero-sky { position: relative; height: 104px; overflow: hidden; background: linear-gradient(180deg, #a9cfe0, #e6e9dd); }
+.hero-sky-bg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.hero-cel { position: absolute; width: 26px; height: 26px; transform: translate(-50%, -50%); pointer-events: none; }
+.hero-cel .glow { position: absolute; left: 50%; top: 50%; width: 74px; height: 74px; transform: translate(-50%, -50%); border-radius: 50%; background: radial-gradient(circle, rgba(255,244,207,.95) 0%, rgba(246,207,114,.42) 48%, rgba(246,207,114,0) 100%); }
+.hero-cel .disc { position: absolute; inset: 0; border-radius: 50%; background: #f7d255; }
+.hero-cel.moon { width: 22px; height: 22px; }
+.hero-cel.moon .glow { display: none; }
+.hero-cel.moon .disc { background: #eef2f6; box-shadow: inset -5px -3px 0 0 rgba(180,190,205,.45); }
+.hero-sky-meta { position: absolute; top: 12px; left: 16px; right: 16px; display: flex; justify-content: space-between; align-items: flex-start; }
+.hero-place { font: 600 12px/1 var(--sans); letter-spacing: .02em; color: #fff; opacity: .94; text-shadow: 0 1px 3px rgba(20,24,40,.5); display: flex; align-items: center; gap: 6px; }
+.hero-clock { font: 600 13px/1 var(--sans); font-variant-numeric: tabular-nums; color: #fff; opacity: .96; text-shadow: 0 1px 3px rgba(20,24,40,.5); }
+.hero-body { padding: 15px 18px 16px; }
+.hero-headrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.hero-headline { font: 600 19px/1.25 var(--serif); color: var(--ink); letter-spacing: .01em; }
+.hero-pill { flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font: 600 11px/1 var(--sans); letter-spacing: .03em; border: 1px solid var(--line-2); color: var(--ink-2); background: var(--card-2); }
+.hero-pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--leaf); box-shadow: 0 0 0 3px var(--leaf-t); }
+.hero-pill.warn .dot { background: var(--sun); box-shadow: 0 0 0 3px var(--sun-t); }
+.hero-pill.err .dot { background: var(--rose); box-shadow: 0 0 0 3px var(--rose-t); }
+.hero-sub { margin-top: 3px; font: 500 12.5px/1.4 var(--sans); color: var(--ink-2); }
+.hero-metrics { margin-top: 14px; display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--line); }
+.hero-metric { display: flex; flex-direction: column; gap: 5px; padding: 12px 14px 2px; position: relative; min-width: 0; }
+.hero-metric + .hero-metric::before { content: ""; position: absolute; left: 0; top: 12px; bottom: 4px; width: 1px; background: var(--line); }
+.hero-metric .mh { display: flex; align-items: center; gap: 6px; color: var(--ink-3); }
+.hero-metric .mh svg { width: 14px; height: 14px; stroke-width: 1.7; flex: none; }
+.hero-metric .ml { font: 600 10px/1 var(--sans); letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); white-space: nowrap; }
+.hero-metric .mv { font: 600 21px/1 var(--sans); font-variant-numeric: tabular-nums; color: var(--ink); }
+.hero-metric .mv .u { font-size: 11px; font-weight: 500; color: var(--ink-3); margin-left: 2px; letter-spacing: 0; }
+@media (max-width: 430px) {
+  .hero-metrics { grid-template-columns: repeat(2, 1fr); }
+  .hero-metric:nth-child(2)::before { display: none; }
+  .hero-metric:nth-child(n+3) { border-top: 1px solid var(--line); }
+}
