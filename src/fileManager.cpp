@@ -7,10 +7,7 @@ enum FSResult {
     FS_OK,
     FS_PARSE_ERROR,
     FS_CONFIG_INVALID,
-    FS_NOT_FOUND,
-    FS_BUSY,
-    FS_WRITE_ERROR,
-    FS_MOUNT_FAIL
+    FS_NOT_FOUND
 };
 
 static void applyDefaults(Config& cfg) {
@@ -285,21 +282,5 @@ bool backupConfig() {
     LittleFS.rename(CONFIG_PATH,      CONFIG_BAK1_PATH);
 
     Serial.println("[fileManager] backup rotated");
-    return true;
-}
-
-bool restoreBackup(const String& filename) {
-    if (!LittleFS.exists(filename)) {
-        Serial.println("[fileManager] ERROR: backup not found — " + filename);
-        return false;
-    }
-
-    LittleFS.remove(CONFIG_PATH);
-    if (!LittleFS.rename(filename, CONFIG_PATH)) {
-        Serial.println("[fileManager] ERROR: could not restore backup " + filename);
-        return false;
-    }
-
-    Serial.println("[fileManager] restored backup " + filename);
     return true;
 }

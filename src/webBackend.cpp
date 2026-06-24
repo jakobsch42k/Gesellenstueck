@@ -520,7 +520,6 @@ static void handleDiagnostics() {
     doc["roofState"] = roofStr[(int)ctrlStatus->roofState];
     doc["ledPWM"]    = ctrlStatus->lightPWM;
 
-    doc["voltage"]  = "N/A";
     doc["freeHeap"] = ESP.getFreeHeap();
 
     JsonArray errSoil = doc["ERR_SOIL"].to<JsonArray>();

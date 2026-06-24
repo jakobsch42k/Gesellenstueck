@@ -856,7 +856,6 @@ function humanizeFlags(ef) {
 }
 function fmt(v, dec) { return (typeof v === 'number' && !isNaN(v)) ? v.toFixed(dec) : '—'; }
 function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
-function boolTxt(v, t, f) { return (v === true || v === 'true' || v === 1) ? t : f; }
 function setChip(el, cls, txt) { el.className = 'chip ' + cls; el.innerHTML = '<span class="dot"></span>' + txt; }
 
 /* ============================================================
