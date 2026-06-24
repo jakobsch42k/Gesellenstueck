@@ -1260,9 +1260,6 @@ function buildValves() {
    ============================================================ */
 function autoSyncTime() {
   const now = new Date();
-  const pad = (n) => String(n).padStart(2, '0');
-  const local = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate()) + 'T' + pad(now.getHours()) + ':' + pad(now.getMinutes());
-  const ti = $('#time-input'); if (ti) ti.value = local;
   const ts = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
   fetch('/setTime', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ timestamp: ts }) }).catch(() => {});
 }
@@ -1344,15 +1341,6 @@ function init() {
     logFilter = b.dataset.lvl;
     $$('#logs-filter .lf').forEach((el) => el.classList.toggle('active', el === b));
     renderLogs(); // re-filter the cached snapshot, no refetch
-  });
-
-  // time
-  $('#set-time-btn').addEventListener('click', () => {
-    const v = $('#time-input').value; if (!v) return toast('Pick a time', true);
-    const dt = new Date(v);
-    if (isNaN(dt.getTime())) return toast('Invalid time', true);
-    const ts = dt.getHours() * 3600 + dt.getMinutes() * 60 + dt.getSeconds();
-    fetch('/setTime', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ timestamp: ts } )}).then(() => toast('Time synced')).catch(() => toast('Sync failed', true));
   });
 
   loadPlants();
