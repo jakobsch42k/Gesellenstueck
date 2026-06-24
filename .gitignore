@@ -17,8 +17,14 @@ HOCHBEET_Projektreferenz.md
 
 # Claude Code — all skills, agents, and tool artifacts
 .claude/skills/
+.claude/commands/
+.claude/settings.json
 .agents/
 .impeccable/
 skills-lock.json
 DESIGN.md
 PRODUCT.md
+
+# Editor / IDE workspace (not part of the shipped firmware)
+.vscode/
+*.code-workspace
