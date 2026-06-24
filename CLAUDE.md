@@ -89,13 +89,17 @@ Each module takes `LiveData*`, `Config*`, `ErrorFlags*` in its `init()` and chec
 - `GET /data.json` → JSON live sensor + control state (tempC, humPerc, lux, luxSmoothed, soilPerc[5], waterLow, waterCritical [bool, true = sufficient], roofClosed, timeOfDay, pumpStatus, activeBed [int, -1 = none], irrigRemainMs [ms left in active pump cycle, 0 unless PUMPING], bedDiffuseMs [int[5], per-bed diffusion lockout ms left, 0 = ready], MAINTENANCE_MODE, ERR_ROOF_TIMEOUT, ERR_WATER_CRITICAL, ERR_FS_MOUNT, EMERGENCY_STOP, ERR_SENSOR_BME, ERR_SENSOR_BH, lastErrorMessage)
 - `GET /logs.json` → event journal as JSON array, oldest→newest: `[{t, up, lvl, tag, msg}]` (t = secs since midnight, up = millis() at log time, lvl = DEBUG/INFO/WARN/ERROR). Served from the RAM ring, not flash.
 - `GET /systemStatus` → uptime, free heap, CPU freq, WiFi client count
-- `GET /config` / `POST /saveConfig` / `POST /importConfig` → config read/write (saveConfig accepts partial JSON; importConfig replaces entire config)
+- `GET /loadConfig` / `POST /saveConfig` / `GET /exportConfig` / `POST /importConfig` → config read/write (saveConfig accepts partial JSON; importConfig replaces entire config; exportConfig streams the full config for download)
+- `GET /getPlants` / `POST /addPlant` / `DELETE /deletePlant` → plant library CRUD (persists `/plants.json` via atomic temp+rename; `MAX_PLANTS=50`, name ≤ `PLANT_NAME_MAX_LEN`; dup names rejected)
+- `GET /diagnostics` → extended sensor/actuator detail (raw soil ADC, I2C comm status, roof FSM state/contact, etc.)
+- `GET /log.txt` → full persisted journal as a file download (more history than the `/logs.json` RAM ring)
 - `POST /manual` → manual actuator commands
+- `POST /setTime` → set the controller clock (no RTC); `POST /reboot` → restart the device
 - `POST /ackErrors` → clear critical faults; also resets roof FSM to IDLE after `ERR_ROOF_TIMEOUT`
 
 Captive portal: DNS redirects all queries to 192.168.4.1; HTTP 302s for iOS/Android/Windows probe URLs. Port 443 listener handles HTTPS probes.
 
-Web UI assets (`data/`) are served from LittleFS. `script.js` polls `/data.json` on an interval and updates the dashboard. `data/plants.json` exists but is currently unused by firmware (reserved for a future plant reference UI).
+Web UI assets (`data/`) are served from LittleFS. `script.js` polls `/data.json` on an interval and updates the dashboard. The plant library is fully wired: `script.js` (`loadPlants`/`renderPlantLib`/`addPlant`/`deletePlant`, Plants subtab in `index.html`) talks to the `/getPlants`/`/addPlant`/`/deletePlant` routes, which persist `/plants.json` via `loadPlants`/`savePlants` in `fileManager.cpp`. The `data/plants.json` seed file is optional — `handleGetPlants` returns `[]` when absent and `addPlant` creates it on first add. Per-bed plant assignments live in browser localStorage (`hb_bedplants`), not on the device.
 
 ### File System (LittleFS)
 
