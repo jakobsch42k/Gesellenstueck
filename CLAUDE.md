@@ -121,9 +121,15 @@ Config exposes timing overrides: `roofOpenDuration_ms`, `roofCloseTimeout_ms`, `
 
 - Don't add redundant state checks (e.g., maintenance-mode guards) for controls that only render in that state.
 
+## UI/Design
+
+- For UI design work, avoid generic "AI slop" / cartoon aesthetics — prefer data-forward, professional, engraving-style designs. Grill me on the intended visual direction before building.
+
 ## Git Workflow
 
 Use `/commit` to automate the gitignore check + conventional message format.
+
+After implementing changes, always verify the build succeeds (`pio run`) before committing, then commit and push to git unless told otherwise.
 
 After every code change, commit and push to GitHub:
 
@@ -154,6 +160,10 @@ Rules:
 - Body explains *why*, not *what* (the diff shows what)
 - Never bundle unrelated changes in one commit
 - After completing changes, propose a commit message and confirm gitignore covers local-only/settings files before committing and pushing.
+
+## Security
+
+- Proactively flag any hardcoded secrets (especially GitHub tokens) found in config or code, and never commit them.
 
 ## Key Constraints
 
