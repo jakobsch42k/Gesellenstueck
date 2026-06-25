@@ -98,6 +98,22 @@
           <div class="sec-label">Planting plan</div>
           <div id="beds-list"></div>
 
+          <div class="sec-label">Soil sensor calibration</div>
+          <div class="card">
+            <div class="note mb12">Raw ADC counts (0–4095). Higher = drier. Measure with probe in dry soil and in saturated soil.</div>
+            <div class="row between" style="gap:16px; margin-bottom:12px">
+              <div style="flex:1">
+                <div class="field-label mb8">Dry value</div>
+                <input class="txt" type="number" id="soil-dry-input" min="0" max="4095" step="1" style="width:100%" />
+              </div>
+              <div style="flex:1">
+                <div class="field-label mb8">Wet value</div>
+                <input class="txt" type="number" id="soil-wet-input" min="0" max="4095" step="1" style="width:100%" />
+              </div>
+            </div>
+            <div class="note">Dry must exceed Wet (inverse sensor). Applied to all 5 beds.</div>
+          </div>
+
           <div class="sec-label">Plant library</div>
           <div class="card" id="plant-lib">
             <div id="plant-list"></div>

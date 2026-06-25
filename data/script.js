@@ -233,7 +233,7 @@ function pushHist(d) {
 
 /* ---- shared state ------------------------------------------ */
 const PLANT_KEY = 'hb_bedplants';
-let config = { moisture: [40, 50, 60, 70, 80], luxTarget: 800, tempTarget: 24, tempHyst: 2, lightProfile: new Array(24).fill(50), nextBed: 0 };
+let config = { moisture: [40, 50, 60, 70, 80], luxTarget: 800, tempTarget: 24, tempHyst: 2, lightProfile: new Array(24).fill(50), nextBed: 0, soilDryValue: 3500, soilWetValue: 800 };
 let plants = [];
 // Versioned envelope: a structurally different value (key reuse, bed-count
 // or shape change in a future version) must not flow into rendering.
@@ -1005,8 +1005,10 @@ async function loadConfig() {
     else if (c.tempHyst != null) config.tempHyst = c.tempHyst;
     if (Array.isArray(c.lightProfile) && c.lightProfile.length === 24) config.lightProfile = c.lightProfile.slice();
     if (c.nextBed != null) config.nextBed = c.nextBed;
+    if (c.soilDryValue != null) config.soilDryValue = c.soilDryValue;
+    if (c.soilWetValue != null) config.soilWetValue = c.soilWetValue;
   } catch (e) { /* keep defaults offline */ }
-  buildBeds(); buildLightProfile(); buildSteppers();
+  buildBeds(); buildLightProfile(); buildSteppers(); buildSoilCalib();
 }
 
 function buildSteppers() {
@@ -1033,6 +1035,23 @@ function stepper(host, value, min, max, step, unit, color, onChange) {
     upd(); onChange(val);
   }));
   upd();
+}
+
+function buildSoilCalib() {
+  const dryEl = $('#soil-dry-input');
+  const wetEl = $('#soil-wet-input');
+  if (!dryEl || !wetEl) return;
+  dryEl.value = config.soilDryValue;
+  wetEl.value = config.soilWetValue;
+  const onChange = () => {
+    const dry = clamp(parseInt(dryEl.value, 10) || 0, 0, 4095);
+    const wet = clamp(parseInt(wetEl.value, 10) || 0, 0, 4095);
+    config.soilDryValue = dry;
+    config.soilWetValue = wet;
+    markDirty();
+  };
+  dryEl.addEventListener('change', onChange);
+  wetEl.addEventListener('change', onChange);
 }
 
 function buildBeds() {
@@ -1133,6 +1152,8 @@ async function saveConfig() {
     tempTarget: config.tempTarget,
     tempHysteresis: config.tempHyst, // round-trip the band the UI displays
     lightProfile: config.lightProfile.map((v) => clamp(Math.round(v), 0, 100)),
+    soilDryValue: config.soilDryValue,
+    soilWetValue: config.soilWetValue,
   };
   try {
     const r = await fetchT('/saveConfig', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
