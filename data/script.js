@@ -986,6 +986,13 @@ function renderLiveBeds() {
     fill.style.width = m + '%'; fill.className = 'moist-fill' + (low ? ' low' : '');
     if (val) { val.textContent = m; val.parentElement.style.color = low ? 'var(--terra)' : 'var(--ink)'; }
   });
+  // sync lock button state in Beds tab without rebuilding the whole list
+  $$('#beds-list [data-bed-lock]').forEach((btn) => {
+    const i = +btn.dataset.bedLock, lk = config.bedLocked[i];
+    btn.className = 'btn-lock' + (lk ? ' locked' : '');
+    btn.title = lk ? 'Unlock irrigation' : 'Lock irrigation';
+    btn.textContent = lk ? '🔒 Locked' : '🔓 Lock';
+  });
 }
 
 /* ============================================================
