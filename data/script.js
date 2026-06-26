@@ -939,6 +939,7 @@ async function pollOnce() {
     const d = await fetchT('/data.json').then((r) => r.json());
     lastData = d;
     maintenance = !!d.MAINTENANCE_MODE;
+    if (Array.isArray(d.bedLocked) && d.bedLocked.length === 5) config.bedLocked = d.bedLocked.map(Boolean);
     if (!firstPollDone) {
       firstPollDone = true;
       document.documentElement.removeAttribute('data-loading');
