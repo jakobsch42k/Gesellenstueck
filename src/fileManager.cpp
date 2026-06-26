@@ -11,7 +11,8 @@ enum FSResult {
 };
 
 static void applyDefaults(Config& cfg) {
-    for (int i = 0; i < NUM_BEDS; i++) cfg.moisture[i] = DEFAULT_MOISTURE;
+    for (int i = 0; i < NUM_BEDS; i++) cfg.moisture[i]   = DEFAULT_MOISTURE;
+    for (int i = 0; i < NUM_BEDS; i++) cfg.bedLocked[i]  = false;
 
     cfg.nextBed               = 0;
 
@@ -39,6 +40,9 @@ static void applyDefaults(Config& cfg) {
 static void configToJson(const Config& cfg, JsonDocument& doc) {
     JsonArray moisture = doc["moisture"].to<JsonArray>();
     for (int i = 0; i < NUM_BEDS; i++) moisture.add(cfg.moisture[i]);
+
+    JsonArray locked = doc["bedLocked"].to<JsonArray>();
+    for (int i = 0; i < NUM_BEDS; i++) locked.add(cfg.bedLocked[i]);
 
     doc["nextBed"]               = cfg.nextBed;
 
@@ -74,6 +78,10 @@ static bool jsonToConfig(const JsonDocument& doc, Config& cfg) {
     JsonArrayConst moisture = doc["moisture"].as<JsonArrayConst>();
     if (moisture.size() < NUM_BEDS) return false;
     for (int i = 0; i < NUM_BEDS; i++) cfg.moisture[i] = moisture[i];
+
+    JsonArrayConst locked = doc["bedLocked"].as<JsonArrayConst>();
+    for (int i = 0; i < NUM_BEDS; i++)
+        cfg.bedLocked[i] = (locked.size() >= NUM_BEDS) ? (bool)locked[i] : false;
 
     cfg.nextBed               = doc["nextBed"] | 0;
 

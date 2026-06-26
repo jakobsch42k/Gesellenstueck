@@ -54,8 +54,9 @@ void IrrigationController::update(const LiveData& data, Config& cfg, ErrorFlags&
             // faulty/moist/soaking (loop simply finds nothing and stays IDLE).
             for (int k = 0; k < NUM_BEDS; k++) {
                 int i = (cfg.nextBed + k) % NUM_BEDS;
-                if (err.ERR_SOIL[i]) continue; // skip faulty sensors
-                if (diffusing[i])    continue; // skip beds still soaking
+                if (err.ERR_SOIL[i])  continue; // skip faulty sensors
+                if (diffusing[i])     continue; // skip beds still soaking
+                if (cfg.bedLocked[i]) continue; // skip manually locked beds
                 if (data.soilPerc[i] < cfg.moisture[i]) {
                     activeBed = i;
                     act->valve_open(activeBed);

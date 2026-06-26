@@ -113,6 +113,10 @@ html.js-motion .view.active { animation:none; }
 /* ---- beds / list rows ------------------------------------- */
 .bed { display:flex; align-items:center; gap:11px; padding:11px 0; border-bottom:1px solid var(--line); }
 .bed:last-child { border-bottom:none; }
+.bed.bed-locked { opacity:.6; }
+.btn-lock { appearance:none; cursor:pointer; background:none; border:1px solid var(--line-2); border-radius:8px; padding:3px 8px; font-size:12px; color:var(--ink-2); line-height:1.4; transition:background .15s, color .15s, border-color .15s; white-space:nowrap; }
+.btn-lock:hover { background:var(--paper-2); }
+.btn-lock.locked { background:var(--terra); border-color:var(--terra); color:#fff; }
 .swatch { width:30px; height:30px; border-radius:8px; flex-shrink:0; display:grid; place-items:center; line-height:1; font-family:var(--serif); font-size:14px; font-weight:600; color:#fff; }
 .b-main { flex:1; min-width:0; }
 .b-top { display:flex; align-items:baseline; justify-content:space-between; gap:8px; }
@@ -305,6 +309,7 @@ select.sel { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w
 .irr-bed.absorbing { stroke: var(--leaf); animation: irr-pulse 1.4s ease-in-out infinite; }
 .irr-bed.next { stroke: var(--leaf); stroke-dasharray: 4 4; }
 .irr-bed.selected { stroke: var(--sky); stroke-width: 3; filter: drop-shadow(0 0 6px color-mix(in oklab, var(--sky) 70%, transparent)); }
+.irr-bed.bed-locked { stroke: var(--terra); stroke-width: 1.5; opacity: .45; }
 @keyframes irr-pulse { 0%,100% { stroke-opacity: 1; } 50% { stroke-opacity: .35; } }
 .irr-fill { fill: color-mix(in oklab, var(--leaf) 55%, transparent); transition: height .5s ease, y .5s ease; }
 .irr-target { stroke: var(--terra); stroke-width: 1.5; stroke-dasharray: 3 3; }

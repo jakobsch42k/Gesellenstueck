@@ -203,6 +203,10 @@ static void applyJsonToConfig(const JsonDocument& doc, Config& c) {
     if (!doc["roofOpenPwm"].isNull())           c.roofOpenPwm           = doc["roofOpenPwm"];
     if (!doc["roofClosePwm"].isNull())          c.roofClosePwm          = doc["roofClosePwm"];
     if (!doc["pumpPwm"].isNull())               c.pumpPwm               = doc["pumpPwm"];
+    if (!doc["bedLocked"].isNull()) {
+        JsonArrayConst bl = doc["bedLocked"].as<JsonArrayConst>();
+        for (int i = 0; i < NUM_BEDS && i < (int)bl.size(); i++) c.bedLocked[i] = (bool)bl[i];
+    }
 }
 
 // ── Route handlers ────────────────────────────────────────────────────────────
@@ -228,6 +232,9 @@ static void handleData() {
     doc["irrigRemainMs"] = ctrlStatus->irrigRemainMs;
     JsonArray diffuse = doc["bedDiffuseMs"].to<JsonArray>();
     for (int i = 0; i < NUM_BEDS; i++) diffuse.add(ctrlStatus->bedDiffuseMs[i]);
+
+    JsonArray bedLocked = doc["bedLocked"].to<JsonArray>();
+    for (int i = 0; i < NUM_BEDS; i++) bedLocked.add(cfg->bedLocked[i]);
 
     addErrorFlags(doc);
 

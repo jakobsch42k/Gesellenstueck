@@ -233,7 +233,7 @@ function pushHist(d) {
 
 /* ---- shared state ------------------------------------------ */
 const PLANT_KEY = 'hb_bedplants';
-let config = { moisture: [40, 50, 60, 70, 80], luxTarget: 800, tempTarget: 24, tempHyst: 2, lightProfile: new Array(24).fill(50), nextBed: 0, soilDryValue: 3500, soilWetValue: 800 };
+let config = { moisture: [40, 50, 60, 70, 80], luxTarget: 800, tempTarget: 24, tempHyst: 2, lightProfile: new Array(24).fill(50), nextBed: 0, soilDryValue: 3500, soilWetValue: 800, bedLocked: [false, false, false, false, false] };
 let plants = [];
 // Versioned envelope: a structurally different value (key reuse, bed-count
 // or shape change in a future version) must not flow into rendering.
@@ -493,15 +493,36 @@ function nextDriestBed() {
   const n = IRR.beds, soil = lastData.soilPerc || [], start = config.nextBed || 0;
   for (let k = 0; k < n; k++) {
     const i = (start + k) % n;
+    if (config.bedLocked[i]) continue;
     if (soil[i] != null && soil[i] < config.moisture[i]) return i;
   }
   return -1;
 }
 
+async function toggleBedLock(i) {
+  config.bedLocked[i] = !config.bedLocked[i];
+  try {
+    const r = await fetchT('/saveConfig', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bedLocked: config.bedLocked.map(Boolean) }),
+    });
+    if (!r.ok) throw new Error(r.status);
+    toast(config.bedLocked[i] ? `Bed ${i + 1} locked` : `Bed ${i + 1} unlocked`);
+  } catch (e) {
+    config.bedLocked[i] = !config.bedLocked[i]; // revert on failure
+    toast('Lock toggle failed — check connection', true);
+  }
+}
+
 function renderIrrigationMap() {
   if (!IRR.built) buildIrrSvg();
   const soil = lastData.soilPerc || [];
-  for (let i = 0; i < IRR.beds; i++) setBedFill(i, soil[i] ?? 0);
+  for (let i = 0; i < IRR.beds; i++) {
+    setBedFill(i, soil[i] ?? 0);
+    const lbl = document.getElementById(`irr-pct-${i}`);
+    if (lbl && config.bedLocked[i]) lbl.textContent = '🔒';
+  }
 
   const locked = !lastData.waterCritical || lastData.EMERGENCY_STOP;
   const ps = (lastData.pumpStatus || 'IDLE').toUpperCase();
@@ -527,7 +548,10 @@ function renderIrrigationMap() {
   const diffuse = Array.isArray(lastData.bedDiffuseMs) ? lastData.bedDiffuseMs : [];
   for (let i = 0; i < IRR.beds; i++) {
     const b = document.getElementById(`irr-bed-${i}`);
-    if (b) b.classList.toggle('absorbing', (diffuse[i] || 0) > 0);
+    if (b) {
+      b.classList.toggle('absorbing', (diffuse[i] || 0) > 0);
+      b.classList.toggle('bed-locked', !!config.bedLocked[i]);
+    }
   }
 
   tankT.textContent = ds === 'LOCKED' ? 'STOP' : 'TANK';
@@ -541,15 +565,22 @@ function renderIrrigationMap() {
     status.textContent = `Watering B${selectedBed + 1} · ${fmtMMSS(lastData.irrigRemainMs)}`;
   } else if ((diffuse[selectedBed] || 0) > 0) {
     status.textContent = `Diffusion B${selectedBed + 1} · ${fmtMMSS(diffuse[selectedBed])}`;
+  } else if (config.bedLocked[selectedBed]) {
+    status.textContent = `B${selectedBed + 1} · locked`;
   } else {
     status.textContent = `B${selectedBed + 1} · idle`;
   }
 }
 function bedRow(i, name, m, target, low) {
-  return `<div class="bed" data-flip-id="bed-${i}"><div class="swatch" style="background:${swatchColor(name)}">${(name[0] || 'B').toUpperCase()}</div>` +
+  const locked = config.bedLocked[i];
+  return `<div class="bed${locked ? ' bed-locked' : ''}" data-flip-id="bed-${i}">` +
+    `<div class="swatch" style="background:${swatchColor(name)}">${(name[0] || 'B').toUpperCase()}</div>` +
     `<div class="b-main"><div class="b-top"><span><span class="b-plant">${esc(name)}</span> <span class="b-id">Bed ${i + 1}</span></span>` +
-    `<span class="b-val ${low ? 'low' : ''}">${m}% <span class="muted">/ ${target}</span></span></div>` +
-    `<div class="moist-track"><div class="moist-fill ${low ? 'low' : ''}" style="width:${m}%"></div>` +
+    `<span style="display:flex;align-items:center;gap:6px">` +
+    `<span class="b-val ${low && !locked ? 'low' : ''}">${m}% <span class="muted">/ ${target}</span></span>` +
+    `<button class="btn-lock${locked ? ' locked' : ''}" data-bed-lock="${i}" title="${locked ? 'Unlock irrigation' : 'Lock irrigation'}">${locked ? '🔒' : '🔓'}</button>` +
+    `</span></div>` +
+    `<div class="moist-track"><div class="moist-fill ${low && !locked ? 'low' : ''}" style="width:${m}%;${locked ? 'opacity:0.35' : ''}"></div>` +
     `<div class="moist-target" style="left:${target}%"></div></div></div></div>`;
 }
 
@@ -1007,6 +1038,7 @@ async function loadConfig() {
     if (c.nextBed != null) config.nextBed = c.nextBed;
     if (c.soilDryValue != null) config.soilDryValue = c.soilDryValue;
     if (c.soilWetValue != null) config.soilWetValue = c.soilWetValue;
+    if (Array.isArray(c.bedLocked) && c.bedLocked.length === 5) config.bedLocked = c.bedLocked.map(Boolean);
   } catch (e) { /* keep defaults offline */ }
   buildBeds(); buildLightProfile(); buildSteppers(); buildSoilCalib();
 }
@@ -1064,7 +1096,10 @@ function buildBeds() {
         <div class="swatch" style="width:38px;height:38px;border-radius:10px;font-size:17px;background:${swatchColor(name || 'Bed')}">${(name[0] || (i + 1)).toString().toUpperCase()}</div>
         <div style="flex:1"><div class="b-id">Bed ${i + 1}</div>
           <div style="font-family:var(--serif);font-size:19px;font-weight:500;line-height:1.1">${esc(name || 'Unassigned')}</div></div>
-        <div style="text-align:right"><div class="readout readout-lg"><span id="pb-val-${i}">—</span><span class="u">%</span></div><div class="note">now</div></div>
+        <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+          <div class="readout readout-lg"><span id="pb-val-${i}">—</span><span class="u">%</span></div>
+          <button class="btn-lock${config.bedLocked[i] ? ' locked' : ''}" data-bed-lock="${i}" title="${config.bedLocked[i] ? 'Unlock irrigation' : 'Lock irrigation'}">${config.bedLocked[i] ? '🔒 Locked' : '🔓 Unlock'}</button>
+        </div>
       </div>
       <div class="moist-track" style="margin-bottom:12px"><div class="moist-fill" id="pb-fill-${i}" style="width:0%"></div>
         <div class="moist-target" id="pb-tgt-${i}" style="left:${target}%"></div></div>
@@ -1154,6 +1189,7 @@ async function saveConfig() {
     lightProfile: config.lightProfile.map((v) => clamp(Math.round(v), 0, 100)),
     soilDryValue: config.soilDryValue,
     soilWetValue: config.soilWetValue,
+    bedLocked: config.bedLocked.map(Boolean),
   };
   try {
     const r = await fetchT('/saveConfig', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -1354,6 +1390,14 @@ function init() {
   $('#led-apply').addEventListener('click', () => { manual('led_pwm', +$('#led-slider').value); toast('Brightness applied'); });
   $('#emerg-btn').addEventListener('click', () => { manual('emergency_stop'); manual('maintenance_on'); maintenance = true; updateMaintUI(); toast('EMERGENCY STOP', true); });
   $('#ack-btn').addEventListener('click', async () => { try { await fetch('/ackErrors', { method: 'POST', headers: { 'Content-Type': 'application/json' } }); toast('Errors reset'); } catch (e) { toast('Reset failed', true); } });
+
+  // bed lock toggle — delegated from document so it works on dynamically-rendered rows
+  document.addEventListener('click', (ev) => {
+    const btn = ev.target.closest('[data-bed-lock]');
+    if (!btn) return;
+    ev.stopPropagation();
+    toggleBedLock(+btn.dataset.bedLock);
+  });
 
   // logs
   $('#logs-refresh').addEventListener('click', fetchLogs);

@@ -31,6 +31,7 @@ struct LiveData {
 struct Config {
     // Bed setpoints
     int           moisture[NUM_BEDS];    // Target soil moisture 0–100% per bed
+    bool          bedLocked[NUM_BEDS];   // true = bed excluded from auto irrigation
 
     // Irrigation fairness: index of bed the next IDLE scan starts from. Rotates
     // so beds take turns under contention (bed 1 only re-watered after bed 5).
