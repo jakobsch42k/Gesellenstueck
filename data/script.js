@@ -570,6 +570,27 @@ function renderIrrigationMap() {
   } else {
     status.textContent = `B${selectedBed + 1} · idle`;
   }
+
+  // action bar below map: lock toggle for selected bed
+  const actions = $('#irrig-bed-actions');
+  if (actions) {
+    if (selectedBed >= 0) {
+      const lk = config.bedLocked[selectedBed];
+      actions.hidden = false;
+      actions.textContent = '';
+      const lbl = document.createElement('span');
+      lbl.className = 'note';
+      lbl.textContent = `Bed ${selectedBed + 1}`;
+      const btn = document.createElement('button');
+      btn.className = 'btn-lock' + (lk ? ' locked' : '');
+      btn.dataset.bedLock = selectedBed;
+      btn.textContent = lk ? '🔒 Locked — tap to unlock' : '🔓 Tap to lock';
+      actions.appendChild(lbl);
+      actions.appendChild(btn);
+    } else {
+      actions.hidden = true;
+    }
+  }
 }
 function bedRow(i, name, m, target, low) {
   const locked = config.bedLocked[i];
@@ -1098,7 +1119,7 @@ function buildBeds() {
           <div style="font-family:var(--serif);font-size:19px;font-weight:500;line-height:1.1">${esc(name || 'Unassigned')}</div></div>
         <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:4px">
           <div class="readout readout-lg"><span id="pb-val-${i}">—</span><span class="u">%</span></div>
-          <button class="btn-lock${config.bedLocked[i] ? ' locked' : ''}" data-bed-lock="${i}" title="${config.bedLocked[i] ? 'Unlock irrigation' : 'Lock irrigation'}">${config.bedLocked[i] ? '🔒 Locked' : '🔓 Unlock'}</button>
+          <button class="btn-lock${config.bedLocked[i] ? ' locked' : ''}" data-bed-lock="${i}" title="${config.bedLocked[i] ? 'Unlock irrigation' : 'Lock irrigation'}">${config.bedLocked[i] ? '🔒 Locked' : '🔓 Lock'}</button>
         </div>
       </div>
       <div class="moist-track" style="margin-bottom:12px"><div class="moist-fill" id="pb-fill-${i}" style="width:0%"></div>
