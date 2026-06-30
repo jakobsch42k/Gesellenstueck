@@ -14,8 +14,8 @@
 
 // ── Water Level Sensors (float switch, ext pull-down, INPUT) ─────────────────
 // HIGH = float closed = water too low, LOW = float open = sufficient
-#define WATER_LOW_PIN        2   // BG1 – warning level
-#define WATER_CRITICAL_PIN   1   // BG2 – critical, locks pump
+#define WATER_LOW_PIN        1   // BG1 – warning level
+#define WATER_CRITICAL_PIN   2   // BG2 – critical, locks pump
 
 // ── Reed Contact Roof End-Position (INPUT_PULLUP) ────────────────────────────
 // HIGH = roof closed, LOW = roof not in end position
