@@ -54,10 +54,19 @@ void IrrigationController::update(const LiveData& data, Config& cfg, ErrorFlags&
             // faulty/moist/soaking (loop simply finds nothing and stays IDLE).
             for (int k = 0; k < NUM_BEDS; k++) {
                 int i = (cfg.nextBed + k) % NUM_BEDS;
-                if (err.ERR_SOIL[i])  continue; // skip faulty sensors
-                if (diffusing[i])     continue; // skip beds still soaking
-                if (cfg.bedLocked[i]) continue; // skip manually locked beds
-                if (data.soilPerc[i] < cfg.moisture[i]) {
+                if (err.ERR_SOIL[i])  { dryCount[i] = 0; continue; } // skip faulty sensors
+                if (diffusing[i])     { dryCount[i] = 0; continue; } // skip beds still soaking
+                if (cfg.bedLocked[i]) { dryCount[i] = 0; continue; } // skip manually locked beds
+                // Hysteresis: start only clearly below target so readings that
+                // jitter around the setpoint can't chatter the pump. Debounce:
+                // demand DRY_CONFIRM_LOOPS consecutive dry passes so one noisy
+                // ADC dip can't fire it either.
+                if (data.soilPerc[i] < cfg.moisture[i] - MOISTURE_HYSTERESIS) {
+                    if (dryCount[i] < DRY_CONFIRM_LOOPS) {
+                        dryCount[i]++;
+                        continue;
+                    }
+                    dryCount[i] = 0;
                     activeBed = i;
                     act->valve_open(activeBed);
                     act->pump_on(cfg.pumpPwm);
@@ -66,6 +75,7 @@ void IrrigationController::update(const LiveData& data, Config& cfg, ErrorFlags&
                                 " dry (" + String(data.soilPerc[i]) + "%) — pumping");
                     break;
                 }
+                dryCount[i] = 0; // reading not dry — restart the confirm streak
             }
             break;
         }

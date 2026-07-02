@@ -38,4 +38,8 @@ private:
     // irrigationPause_ms elapses from lockedAt[i]. false at boot = all ready.
     bool            diffusing[NUM_BEDS] = {false};
     unsigned long   lockedAt[NUM_BEDS]  = {0};
+    // Consecutive loop passes a bed has read below the hysteresis start
+    // threshold. Watering starts only after DRY_CONFIRM_LOOPS in a row, so a
+    // single noisy ADC dip near the setpoint can't fire the pump.
+    uint8_t         dryCount[NUM_BEDS]  = {0};
 };
